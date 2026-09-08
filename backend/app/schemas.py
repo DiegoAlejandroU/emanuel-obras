@@ -18,6 +18,15 @@ class ObraCreate(ObraBase):
     pass
 
 
+class ObraUpdate(BaseModel):
+    nombre: Optional[str] = None
+    ubicacion: Optional[str] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin_estimada: Optional[date] = None
+    presupuesto_total: Optional[float] = None
+    estado: Optional[str] = None
+
+
 class Obra(ObraBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -33,6 +42,12 @@ class ActividadBase(BaseModel):
 
 class ActividadCreate(ActividadBase):
     obra_id: int
+
+
+class ActividadUpdate(BaseModel):
+    nombre: Optional[str] = None
+    peso_porcentual: Optional[float] = None
+    presupuesto_asignado: Optional[float] = None
 
 
 class Actividad(ActividadBase):

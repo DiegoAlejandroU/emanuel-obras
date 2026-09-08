@@ -1,14 +1,16 @@
 import { useState } from 'react'
+import Obras from './pages/Obras.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Bitacora from './pages/Bitacora.jsx'
 
 const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'obras', label: 'Obras' },
   { key: 'bitacora', label: 'Bitácora de obra' },
+  { key: 'dashboard', label: 'Dashboard' },
 ]
 
 export default function App() {
-  const [tab, setTab] = useState('dashboard')
+  const [tab, setTab] = useState('obras')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,7 +35,9 @@ export default function App() {
       </nav>
 
       <main className="bg-white border-t border-gray-200 p-6">
-        {tab === 'dashboard' ? <Dashboard /> : <Bitacora />}
+        {tab === 'obras' && <Obras />}
+        {tab === 'bitacora' && <Bitacora />}
+        {tab === 'dashboard' && <Dashboard />}
       </main>
     </div>
   )

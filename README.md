@@ -61,4 +61,7 @@ La app queda en `http://localhost:5173`.
 
 ## Estado actual
 
-Scaffold inicial: estructura de proyecto, modelos de datos base (obras, actividades, bitácora) y endpoints CRUD mínimos. Próximos pasos: definir el modelo de datos completo con el ingeniero, construir las vistas de captura de bitácora y el dashboard de indicadores.
+- Backend: CRUD completo de obras y actividades (crear, editar, eliminar), registro de bitácora diaria con avance por actividad (`avance_incremental`, materiales, costo del día) y endpoint de indicadores por obra.
+- Frontend: pestaña **Obras** para crear/editar/eliminar obras y sus actividades (con aviso visual si los pesos porcentuales no suman 100%); pestaña **Bitácora** con formulario de avance real por actividad conectado al backend (antes se enviaba vacío); pestaña **Dashboard** con indicadores de avance físico y presupuesto.
+
+Próximos pasos: gráficas y desglose financiero más detallado en el dashboard, alertas de retraso frente al cronograma, reportes exportables (PDF/Excel) para gerencia e interventoría, y autenticación de usuarios (residente de obra vs. gerencia).
