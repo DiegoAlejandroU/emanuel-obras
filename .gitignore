@@ -2,8 +2,12 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-test/
 venv/
 .env
+*.db
+.pytest_cache/
+.ruff_cache/
 
 # Node
 node_modules/

@@ -2,20 +2,42 @@ import { useState } from 'react'
 import Obras from './pages/Obras.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Bitacora from './pages/Bitacora.jsx'
-
-const TABS = [
-  { key: 'obras', label: 'Obras' },
-  { key: 'bitacora', label: 'Bitácora de obra' },
-  { key: 'dashboard', label: 'Dashboard' },
-]
+import Usuarios from './pages/Usuarios.jsx'
+import Login from './pages/Login.jsx'
+import { borrarToken, usuarioActualDesdeToken } from './lib/auth.js'
 
 export default function App() {
+  const [usuario, setUsuario] = useState(usuarioActualDesdeToken())
   const [tab, setTab] = useState('obras')
+
+  if (!usuario) {
+    return <Login onIngreso={() => setUsuario(usuarioActualDesdeToken())} />
+  }
+
+  const puedeEditarObras = ['administrador', 'gerencia'].includes(usuario.rol)
+
+  const TABS = [
+    { key: 'obras', label: 'Obras' },
+    { key: 'bitacora', label: 'Bitácora de obra' },
+    { key: 'dashboard', label: 'Dashboard' },
+    ...(usuario.rol === 'administrador' ? [{ key: 'usuarios', label: 'Usuarios' }] : []),
+  ]
+
+  function cerrarSesion() {
+    borrarToken()
+    setUsuario(null)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-obra-700 text-white px-6 py-4">
+      <header className="bg-obra-700 text-white px-6 py-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold">Emanuel Ingeniería y Construcciones — Ejecución de Obras</h1>
+        <div className="flex items-center gap-4 text-sm">
+          <span className="opacity-80">Rol: {usuario.rol}</span>
+          <button onClick={cerrarSesion} className="underline hover:opacity-80">
+            Cerrar sesión
+          </button>
+        </div>
       </header>
 
       <nav className="flex gap-2 px-6 pt-4">
@@ -35,9 +57,10 @@ export default function App() {
       </nav>
 
       <main className="bg-white border-t border-gray-200 p-6">
-        {tab === 'obras' && <Obras />}
+        {tab === 'obras' && <Obras puedeEditar={puedeEditarObras} />}
         {tab === 'bitacora' && <Bitacora />}
         {tab === 'dashboard' && <Dashboard />}
+        {tab === 'usuarios' && usuario.rol === 'administrador' && <Usuarios />}
       </main>
     </div>
   )

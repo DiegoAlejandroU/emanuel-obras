@@ -1,100 +1,85 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
-from ..database import get_db
+from .. import schemas
+from ..core.deps import requiere_rol, verificar_token
+from ..db.session import get_db
+from ..services import actividades_service, obras_service
 
-router = APIRouter(prefix="/obras", tags=["Obras"])
+router = APIRouter(prefix="/api/obras", tags=["Obras"])
 
 
-@router.get("/", response_model=list[schemas.Obra])
+@router.get("/", response_model=list[schemas.ObraRespuesta], dependencies=[Depends(verificar_token)])
 def listar_obras(db: Session = Depends(get_db)):
-    return db.query(models.Obra).all()
+    return obras_service.listar_obras(db)
 
 
-@router.post("/", response_model=schemas.Obra)
-def crear_obra(obra: schemas.ObraCreate, db: Session = Depends(get_db)):
-    nueva = models.Obra(**obra.model_dump())
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return nueva
-
-
-@router.get("/{obra_id}", response_model=schemas.Obra)
+@router.get("/{obra_id}", response_model=schemas.ObraRespuesta, dependencies=[Depends(verificar_token)])
 def obtener_obra(obra_id: int, db: Session = Depends(get_db)):
-    obra = db.query(models.Obra).filter(models.Obra.id == obra_id).first()
-    if not obra:
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-    return obra
+    return obras_service.obtener_obra_o_404(db, obra_id)
 
 
-@router.patch("/{obra_id}", response_model=schemas.Obra)
-def actualizar_obra(obra_id: int, cambios: schemas.ObraUpdate, db: Session = Depends(get_db)):
-    obra = db.query(models.Obra).filter(models.Obra.id == obra_id).first()
-    if not obra:
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-    for campo, valor in cambios.model_dump(exclude_unset=True).items():
-        setattr(obra, campo, valor)
-    db.commit()
-    db.refresh(obra)
-    return obra
+@router.post(
+    "/",
+    response_model=schemas.ObraRespuesta,
+    dependencies=[Depends(requiere_rol("administrador", "gerencia"))],
+)
+def crear_obra(datos: schemas.ObraCrear, db: Session = Depends(get_db)):
+    return obras_service.crear_obra(db, datos)
 
 
-@router.delete("/{obra_id}", status_code=204)
+@router.put(
+    "/{obra_id}",
+    response_model=schemas.ObraRespuesta,
+    dependencies=[Depends(requiere_rol("administrador", "gerencia"))],
+)
+def actualizar_obra(obra_id: int, datos: schemas.ObraActualizar, db: Session = Depends(get_db)):
+    return obras_service.actualizar_obra(db, obra_id, datos)
+
+
+@router.patch(
+    "/{obra_id}/estado",
+    response_model=schemas.ObraRespuesta,
+    dependencies=[Depends(requiere_rol("administrador", "gerencia"))],
+)
+def cambiar_estado_obra(obra_id: int, datos: schemas.ObraCambioEstado, db: Session = Depends(get_db)):
+    return obras_service.cambiar_estado_obra(db, obra_id, datos.estado)
+
+
+@router.delete(
+    "/{obra_id}",
+    status_code=204,
+    dependencies=[Depends(requiere_rol("administrador"))],
+)
 def eliminar_obra(obra_id: int, db: Session = Depends(get_db)):
-    obra = db.query(models.Obra).filter(models.Obra.id == obra_id).first()
-    if not obra:
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-    db.delete(obra)
-    db.commit()
+    obras_service.eliminar_obra(db, obra_id)
     return Response(status_code=204)
 
 
-@router.post("/{obra_id}/actividades", response_model=schemas.Actividad)
-def crear_actividad(obra_id: int, actividad: schemas.ActividadBase, db: Session = Depends(get_db)):
-    obra = db.query(models.Obra).filter(models.Obra.id == obra_id).first()
-    if not obra:
-        raise HTTPException(status_code=404, detail="Obra no encontrada")
-    nueva = models.Actividad(obra_id=obra_id, **actividad.model_dump())
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return nueva
+@router.get(
+    "/{obra_id}/indicadores",
+    response_model=schemas.IndicadorObra,
+    dependencies=[Depends(verificar_token)],
+)
+def indicadores_obra(obra_id: int, db: Session = Depends(get_db)):
+    return obras_service.calcular_indicadores(db, obra_id)
 
 
-@router.get("/{obra_id}/actividades", response_model=list[schemas.Actividad])
+# ---------- Actividades anidadas bajo /api/obras/{obraId}/actividades ----------
+
+@router.get(
+    "/{obra_id}/actividades",
+    response_model=list[schemas.ActividadRespuesta],
+    dependencies=[Depends(verificar_token)],
+)
 def listar_actividades(obra_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Actividad).filter(models.Actividad.obra_id == obra_id).all()
+    return actividades_service.listar_actividades(db, obra_id)
 
 
-@router.patch("/{obra_id}/actividades/{actividad_id}", response_model=schemas.Actividad)
-def actualizar_actividad(
-    obra_id: int, actividad_id: int, cambios: schemas.ActividadUpdate, db: Session = Depends(get_db)
-):
-    actividad = (
-        db.query(models.Actividad)
-        .filter(models.Actividad.id == actividad_id, models.Actividad.obra_id == obra_id)
-        .first()
-    )
-    if not actividad:
-        raise HTTPException(status_code=404, detail="Actividad no encontrada")
-    for campo, valor in cambios.model_dump(exclude_unset=True).items():
-        setattr(actividad, campo, valor)
-    db.commit()
-    db.refresh(actividad)
-    return actividad
-
-
-@router.delete("/{obra_id}/actividades/{actividad_id}", status_code=204)
-def eliminar_actividad(obra_id: int, actividad_id: int, db: Session = Depends(get_db)):
-    actividad = (
-        db.query(models.Actividad)
-        .filter(models.Actividad.id == actividad_id, models.Actividad.obra_id == obra_id)
-        .first()
-    )
-    if not actividad:
-        raise HTTPException(status_code=404, detail="Actividad no encontrada")
-    db.delete(actividad)
-    db.commit()
-    return Response(status_code=204)
+@router.post(
+    "/{obra_id}/actividades",
+    response_model=schemas.ActividadRespuesta,
+    dependencies=[Depends(requiere_rol("administrador", "gerencia"))],
+)
+def crear_actividad(obra_id: int, datos: schemas.ActividadCrear, db: Session = Depends(get_db)):
+    return actividades_service.crear_actividad(db, obra_id, datos)

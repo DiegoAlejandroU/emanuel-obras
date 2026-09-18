@@ -1,20 +1,39 @@
+import { borrarToken, obtenerToken } from './auth.js'
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+class ApiError extends Error {
+  constructor(mensaje, errores) {
+    super(mensaje)
+    this.errores = errores || []
+  }
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  })
+  const token = obtenerToken()
+  const headers = { ...(options.headers || {}) }
+  if (!(options.body instanceof URLSearchParams)) {
+    headers['Content-Type'] = 'application/json'
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers })
+
+  if (res.status === 401) {
+    borrarToken()
+  }
 
   if (!res.ok) {
-    let detail = res.statusText
+    let mensaje = res.statusText
+    let errores = []
     try {
       const data = await res.json()
-      detail = data.detail || detail
+      mensaje = data.mensaje || data.detail || mensaje
+      errores = data.errores || []
     } catch {
       // el cuerpo no era JSON, se usa el statusText
     }
-    throw new Error(detail)
+    throw new ApiError(mensaje, errores)
   }
 
   if (res.status === 204) return null
@@ -22,28 +41,51 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Autenticación
+  login: (email, password) => {
+    const body = new URLSearchParams({ username: email, password })
+    return request('/api/auth/login', { method: 'POST', body })
+  },
+
+  // Usuarios (solo administrador)
+  listarUsuarios: () => request('/api/usuarios/'),
+  crearUsuario: (data) => request('/api/usuarios/', { method: 'POST', body: JSON.stringify(data) }),
+
   // Obras
-  listarObras: () => request('/obras/'),
-  crearObra: (data) => request('/obras/', { method: 'POST', body: JSON.stringify(data) }),
-  actualizarObra: (obraId, data) =>
-    request(`/obras/${obraId}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  eliminarObra: (obraId) => request(`/obras/${obraId}`, { method: 'DELETE' }),
+  listarObras: () => request('/api/obras/'),
+  obtenerObra: (obraId) => request(`/api/obras/${obraId}`),
+  crearObra: (data) => request('/api/obras/', { method: 'POST', body: JSON.stringify(data) }),
+  actualizarObra: (obraId, data) => request(`/api/obras/${obraId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  cambiarEstadoObra: (obraId, estado) =>
+    request(`/api/obras/${obraId}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) }),
+  eliminarObra: (obraId) => request(`/api/obras/${obraId}`, { method: 'DELETE' }),
+  indicadoresObra: (obraId) => request(`/api/obras/${obraId}/indicadores`),
 
   // Actividades
-  listarActividades: (obraId) => request(`/obras/${obraId}/actividades`),
+  listarActividades: (obraId) => request(`/api/obras/${obraId}/actividades`),
   crearActividad: (obraId, data) =>
-    request(`/obras/${obraId}/actividades`, { method: 'POST', body: JSON.stringify(data) }),
-  actualizarActividad: (obraId, actividadId, data) =>
-    request(`/obras/${obraId}/actividades/${actividadId}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  eliminarActividad: (obraId, actividadId) =>
-    request(`/obras/${obraId}/actividades/${actividadId}`, { method: 'DELETE' }),
+    request(`/api/obras/${obraId}/actividades`, { method: 'POST', body: JSON.stringify(data) }),
+  actualizarActividad: (actividadId, data) =>
+    request(`/api/actividades/${actividadId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  eliminarActividad: (actividadId) => request(`/api/actividades/${actividadId}`, { method: 'DELETE' }),
 
-  // Bitácora
-  listarRegistrosBitacora: (obraId) => request(`/bitacora/obra/${obraId}`),
-  crearRegistroBitacora: (data) => request('/bitacora/', { method: 'POST', body: JSON.stringify(data) }),
+  // Bitácoras diarias
+  listarBitacoras: (obraId) => request(`/api/obras/${obraId}/bitacoras`),
+  obtenerBitacora: (bitacoraId) => request(`/api/bitacoras/${bitacoraId}`),
+  crearBitacora: (obraId, data) =>
+    request(`/api/obras/${obraId}/bitacoras`, { method: 'POST', body: JSON.stringify(data) }),
+  actualizarBitacora: (bitacoraId, data) =>
+    request(`/api/bitacoras/${bitacoraId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  cambiarEstadoBitacora: (bitacoraId, estado, motivoRechazo) =>
+    request(`/api/bitacoras/${bitacoraId}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estado, motivo_rechazo: motivoRechazo || null }),
+    }),
+  eliminarBitacora: (bitacoraId) => request(`/api/bitacoras/${bitacoraId}`, { method: 'DELETE' }),
 
-  // Dashboard
-  indicadoresObra: (obraId) => request(`/dashboard/obra/${obraId}`),
+  // Alertas
+  listarAlertas: (obraId) => request(`/api/obras/${obraId}/alertas`),
+  resolverAlerta: (alertaId) => request(`/api/alertas/${alertaId}/resolver`, { method: 'PATCH' }),
 }
 
-export { API_URL }
+export { API_URL, ApiError }

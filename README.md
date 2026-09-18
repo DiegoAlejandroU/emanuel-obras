@@ -4,36 +4,36 @@ Proyecto de práctica profesional (Ingeniería de Sistemas — Universidad Santo
 
 ## Objetivo
 
-Sistema web compuesto por dos módulos que trabajan juntos:
+Sistema web compuesto por varios módulos que trabajan juntos:
 
-1. **Bitácora digital de obra**: registro diario de actividades ejecutadas, personal en obra, materiales consumidos e incidentes, capturado por el residente de obra (pensado para uso desde celular/tablet en campo).
-2. **Dashboard de indicadores**: avance físico y financiero por obra y por actividad, calculado a partir de lo registrado en la bitácora, con alertas de retraso y reportes exportables para gerencia e interventoría.
+1. **Bitácora digital de obra**: registro diario de actividades ejecutadas, personal en obra, materiales consumidos e incidentes, con un flujo de aprobación (`borrador → enviada → aprobada/rechazada`) a cargo del interventor.
+2. **Dashboard de indicadores**: avance físico y financiero por obra y por actividad, calculado únicamente a partir de bitácoras **aprobadas**.
+3. **Alertas de retraso**: generadas por el sistema (no por el usuario) comparando avance real vs. programado.
+4. **Control de acceso por roles**: `administrador`, `residente_obra`, `interventor`, `gerencia`.
+
+El desarrollo sigue el `Estándar de Normalización — Emanuel_Obras` (convenciones de Git, nomenclatura, modelo de datos, reglas de negocio, arquitectura y seguridad).
 
 ## Stack
 
-- **Backend**: FastAPI + PostgreSQL (SQLAlchemy)
+- **Backend**: FastAPI + PostgreSQL (SQLAlchemy) + JWT (OAuth2) + RBAC
 - **Frontend**: React + Vite + Tailwind CSS
 
-## Estructura del proyecto
+## Estructura del backend
 
 ```
-emanuel-obras/
-├── backend/          # API REST (FastAPI)
-│   └── app/
-│       ├── main.py
-│       ├── database.py
-│       ├── models.py
-│       ├── schemas.py
-│       └── routers/
-│           ├── obras.py       # CRUD de proyectos/obras
-│           ├── bitacora.py    # Registro diario de obra
-│           └── dashboard.py   # Indicadores de avance
-└── frontend/         # Aplicación web (React + Tailwind)
-    └── src/
-        ├── pages/
-        │   ├── Bitacora.jsx
-        │   └── Dashboard.jsx
-        └── components/
+backend/app/
+├── main.py                  # crea la app, CORS, exception handlers, monta routers
+├── core/
+│   ├── config.py            # Settings (pydantic-settings), falla rápido si falta una variable
+│   ├── security.py          # hashing (bcrypt) y JWT
+│   ├── deps.py               # Depends(verificar_token) / Depends(requiere_rol(...))
+│   └── rate_limit.py         # límite de intentos en /api/auth/login
+├── db/                       # engine, SessionLocal, Base declarativa
+├── models/                   # una clase SQLAlchemy por entidad
+├── schemas/                  # Pydantic — Crear / Actualizar / Respuesta por recurso
+├── services/                  # reglas de negocio (R1–R10 del estándar), nunca tocan Request/Response
+├── routers/                   # path operations delgadas, delegan al service
+└── exceptions.py              # AppError + formato de error uniforme
 ```
 
 ## Cómo correr el backend
@@ -43,11 +43,32 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate   # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env         # y ajustar la URL de PostgreSQL
+cp .env.example .env         # ajustar DATABASE_URL y generar un SECRET_KEY propio
 uvicorn app.main:app --reload
 ```
 
 La API queda en `http://localhost:8000` y la documentación interactiva en `http://localhost:8000/docs`.
+
+**Primer usuario administrador** (necesario para poder crear el resto de usuarios desde la API/UI):
+
+```bash
+python -m scripts.crear_usuario_admin
+```
+
+**Generar alertas de retraso** (pensado para un cron/Task Scheduler periódico — nunca se crean por POST del usuario):
+
+```bash
+python -m scripts.generar_alertas
+```
+
+### Pruebas y calidad (checklist del estándar)
+
+```bash
+pytest -q            # pruebas de integración de las reglas de negocio (usa SQLite, no toca la BD real)
+ruff check app scripts
+bandit -r app
+pip-audit
+```
 
 ## Cómo correr el frontend
 
@@ -57,11 +78,19 @@ npm install
 npm run dev
 ```
 
-La app queda en `http://localhost:5173`.
+La app queda en `http://localhost:5173`. Inicia sesión con el usuario administrador creado arriba; desde la pestaña **Usuarios** puedes crear las cuentas de residente de obra, interventor y gerencia.
+
+## Roles y qué puede hacer cada uno
+
+| Rol | Puede |
+| --- | --- |
+| `administrador` | Todo: usuarios, obras, actividades, bitácoras, alertas |
+| `gerencia` | Crear/editar obras y actividades, ver bitácoras, dashboard y alertas |
+| `residente_obra` | Registrar y editar bitácoras propias (mientras estén en borrador/rechazada), ver obras y dashboard |
+| `interventor` | Aprobar o rechazar bitácoras, resolver alertas, ver todo |
 
 ## Estado actual
 
-- Backend: CRUD completo de obras y actividades (crear, editar, eliminar), registro de bitácora diaria con avance por actividad (`avance_incremental`, materiales, costo del día) y endpoint de indicadores por obra.
-- Frontend: pestaña **Obras** para crear/editar/eliminar obras y sus actividades (con aviso visual si los pesos porcentuales no suman 100%); pestaña **Bitácora** con formulario de avance real por actividad conectado al backend (antes se enviaba vacío); pestaña **Dashboard** con indicadores de avance físico y presupuesto.
-
-Próximos pasos: gráficas y desglose financiero más detallado en el dashboard, alertas de retraso frente al cronograma, reportes exportables (PDF/Excel) para gerencia e interventoría, y autenticación de usuarios (residente de obra vs. gerencia).
+- **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
+- **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores y alertas, gestión de usuarios (solo administrador).
+- **Pendiente** (próximo frente del roadmap, no incluido en este retrofit): generación automática de alertas por tarea programada (el cálculo ya existe en `alertas_service.generar_alertas_retraso`, falta programarlo), reportes exportables (PDF/XLSX) para gerencia e interventoría, gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción.

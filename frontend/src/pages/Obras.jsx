@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 
-const ESTADOS = ['activa', 'suspendida', 'finalizada']
+const ESTADOS_OBRA = ['planificada', 'en_ejecucion', 'suspendida', 'terminada', 'cancelada']
 
 const OBRA_VACIA = {
   nombre: '',
+  contratista: '',
   ubicacion: '',
   fecha_inicio: '',
   fecha_fin_estimada: '',
   presupuesto_total: 0,
-  estado: 'activa',
 }
 
-const ACTIVIDAD_VACIA = { nombre: '', peso_porcentual: 0, presupuesto_asignado: 0 }
+const ACTIVIDAD_VACIA = {
+  nombre: '',
+  descripcion: '',
+  pesoPorcentualUi: 0, // 0-100 en la interfaz; se convierte a fracción 0-1 al guardar
+  costo_presupuestado: 0,
+  fecha_inicio_programada: '',
+  fecha_fin_programada: '',
+}
 
-export default function Obras() {
+export default function Obras({ puedeEditar }) {
   const [obras, setObras] = useState([])
   const [obraSeleccionada, setObraSeleccionada] = useState(null)
   const [actividades, setActividades] = useState([])
@@ -32,13 +39,12 @@ export default function Obras() {
       .listarObras()
       .then((data) => {
         setObras(data)
-        // mantiene sincronizada la obra seleccionada con los datos frescos
         if (obraSeleccionada) {
           const actualizada = data.find((o) => o.id === obraSeleccionada.id)
           setObraSeleccionada(actualizada || null)
         }
       })
-      .catch(() => setMensaje('No se pudo conectar con la API.'))
+      .catch((err) => setMensaje(err.message))
   }
 
   useEffect(() => {
@@ -47,10 +53,7 @@ export default function Obras() {
   }, [])
 
   function cargarActividades(obraId) {
-    api
-      .listarActividades(obraId)
-      .then(setActividades)
-      .catch(() => setMensaje('No se pudieron cargar las actividades.'))
+    api.listarActividades(obraId).then(setActividades).catch((err) => setMensaje(err.message))
   }
 
   useEffect(() => {
@@ -91,11 +94,11 @@ export default function Obras() {
     setEditandoObraId(obra.id)
     setFormObra({
       nombre: obra.nombre,
+      contratista: obra.contratista || '',
       ubicacion: obra.ubicacion || '',
       fecha_inicio: obra.fecha_inicio || '',
       fecha_fin_estimada: obra.fecha_fin_estimada || '',
       presupuesto_total: obra.presupuesto_total || 0,
-      estado: obra.estado || 'activa',
     })
   }
 
@@ -104,10 +107,17 @@ export default function Obras() {
     setFormObra(OBRA_VACIA)
   }
 
-  async function eliminarObra(obra) {
-    if (!window.confirm(`¿Eliminar la obra "${obra.nombre}"? Esto borra también su bitácora y actividades.`)) {
-      return
+  async function cambiarEstado(obra, estado) {
+    try {
+      await api.cambiarEstadoObra(obra.id, estado)
+      cargarObras()
+    } catch (err) {
+      setMensaje(`Error al cambiar el estado: ${err.message}`)
     }
+  }
+
+  async function eliminarObra(obra) {
+    if (!window.confirm(`¿Eliminar la obra "${obra.nombre}"?`)) return
     try {
       await api.eliminarObra(obra.id)
       if (obraSeleccionada?.id === obra.id) setObraSeleccionada(null)
@@ -123,11 +133,14 @@ export default function Obras() {
     try {
       const payload = {
         nombre: formActividad.nombre,
-        peso_porcentual: Number(formActividad.peso_porcentual) || 0,
-        presupuesto_asignado: Number(formActividad.presupuesto_asignado) || 0,
+        descripcion: formActividad.descripcion || null,
+        peso_porcentual: (Number(formActividad.pesoPorcentualUi) || 0) / 100,
+        costo_presupuestado: Number(formActividad.costo_presupuestado) || 0,
+        fecha_inicio_programada: formActividad.fecha_inicio_programada || null,
+        fecha_fin_programada: formActividad.fecha_fin_programada || null,
       }
       if (editandoActividadId) {
-        await api.actualizarActividad(obraSeleccionada.id, editandoActividadId, payload)
+        await api.actualizarActividad(editandoActividadId, payload)
       } else {
         await api.crearActividad(obraSeleccionada.id, payload)
       }
@@ -143,8 +156,11 @@ export default function Obras() {
     setEditandoActividadId(actividad.id)
     setFormActividad({
       nombre: actividad.nombre,
-      peso_porcentual: actividad.peso_porcentual,
-      presupuesto_asignado: actividad.presupuesto_asignado,
+      descripcion: actividad.descripcion || '',
+      pesoPorcentualUi: Math.round((actividad.peso_porcentual || 0) * 100),
+      costo_presupuestado: actividad.costo_presupuestado,
+      fecha_inicio_programada: actividad.fecha_inicio_programada || '',
+      fecha_fin_programada: actividad.fecha_fin_programada || '',
     })
   }
 
@@ -154,17 +170,16 @@ export default function Obras() {
   }
 
   async function eliminarActividad(actividad) {
-    if (!obraSeleccionada) return
     if (!window.confirm(`¿Eliminar la actividad "${actividad.nombre}"?`)) return
     try {
-      await api.eliminarActividad(obraSeleccionada.id, actividad.id)
+      await api.eliminarActividad(actividad.id)
       cargarActividades(obraSeleccionada.id)
     } catch (err) {
       setMensaje(`Error al eliminar la actividad: ${err.message}`)
     }
   }
 
-  const sumaPesos = actividades.reduce((acc, a) => acc + (a.peso_porcentual || 0), 0)
+  const sumaPesos = actividades.reduce((acc, a) => acc + (a.peso_porcentual || 0) * 100, 0)
 
   return (
     <div className="max-w-5xl space-y-8">
@@ -172,72 +187,69 @@ export default function Obras() {
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Obras</h2>
         {mensaje && <p className="text-sm text-gray-600 mb-3">{mensaje}</p>}
 
-        <form onSubmit={guardarObra} className="grid grid-cols-2 gap-3 mb-6 border border-gray-200 rounded-md p-4">
-          <input
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Nombre de la obra"
-            value={formObra.nombre}
-            onChange={(e) => setFormObra({ ...formObra, nombre: e.target.value })}
-            required
-          />
-          <input
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Ubicación"
-            value={formObra.ubicacion}
-            onChange={(e) => setFormObra({ ...formObra, ubicacion: e.target.value })}
-          />
-          <label className="text-xs text-gray-500 flex flex-col gap-1">
-            Fecha de inicio
+        {puedeEditar && (
+          <form onSubmit={guardarObra} className="grid grid-cols-2 gap-3 mb-6 border border-gray-200 rounded-md p-4">
             <input
-              type="date"
               className="border border-gray-300 rounded-md px-3 py-2"
-              value={formObra.fecha_inicio}
-              onChange={(e) => setFormObra({ ...formObra, fecha_inicio: e.target.value })}
+              placeholder="Nombre de la obra"
+              value={formObra.nombre}
+              onChange={(e) => setFormObra({ ...formObra, nombre: e.target.value })}
+              required
             />
-          </label>
-          <label className="text-xs text-gray-500 flex flex-col gap-1">
-            Fecha fin estimada
             <input
-              type="date"
               className="border border-gray-300 rounded-md px-3 py-2"
-              value={formObra.fecha_fin_estimada}
-              onChange={(e) => setFormObra({ ...formObra, fecha_fin_estimada: e.target.value })}
+              placeholder="Contratista"
+              value={formObra.contratista}
+              onChange={(e) => setFormObra({ ...formObra, contratista: e.target.value })}
             />
-          </label>
-          <input
-            type="number"
-            min="0"
-            className="border border-gray-300 rounded-md px-3 py-2"
-            placeholder="Presupuesto total"
-            value={formObra.presupuesto_total}
-            onChange={(e) => setFormObra({ ...formObra, presupuesto_total: e.target.value })}
-          />
-          <select
-            className="border border-gray-300 rounded-md px-3 py-2"
-            value={formObra.estado}
-            onChange={(e) => setFormObra({ ...formObra, estado: e.target.value })}
-          >
-            {ESTADOS.map((estado) => (
-              <option key={estado} value={estado}>
-                {estado}
-              </option>
-            ))}
-          </select>
-          <div className="col-span-2 flex gap-2">
-            <button type="submit" className="bg-obra-600 text-white px-4 py-2 rounded-md hover:bg-obra-700">
-              {editandoObraId ? 'Guardar cambios' : 'Crear obra'}
-            </button>
-            {editandoObraId && (
-              <button
-                type="button"
-                className="px-4 py-2 rounded-md text-gray-500 hover:text-gray-700"
-                onClick={cancelarEdicionObra}
-              >
-                Cancelar
+            <input
+              className="border border-gray-300 rounded-md px-3 py-2"
+              placeholder="Ubicación"
+              value={formObra.ubicacion}
+              onChange={(e) => setFormObra({ ...formObra, ubicacion: e.target.value })}
+            />
+            <input
+              type="number"
+              min="0"
+              className="border border-gray-300 rounded-md px-3 py-2"
+              placeholder="Presupuesto total"
+              value={formObra.presupuesto_total}
+              onChange={(e) => setFormObra({ ...formObra, presupuesto_total: e.target.value })}
+            />
+            <label className="text-xs text-gray-500 flex flex-col gap-1">
+              Fecha de inicio
+              <input
+                type="date"
+                className="border border-gray-300 rounded-md px-3 py-2"
+                value={formObra.fecha_inicio}
+                onChange={(e) => setFormObra({ ...formObra, fecha_inicio: e.target.value })}
+              />
+            </label>
+            <label className="text-xs text-gray-500 flex flex-col gap-1">
+              Fecha fin estimada
+              <input
+                type="date"
+                className="border border-gray-300 rounded-md px-3 py-2"
+                value={formObra.fecha_fin_estimada}
+                onChange={(e) => setFormObra({ ...formObra, fecha_fin_estimada: e.target.value })}
+              />
+            </label>
+            <div className="col-span-2 flex gap-2">
+              <button type="submit" className="bg-obra-600 text-white px-4 py-2 rounded-md hover:bg-obra-700">
+                {editandoObraId ? 'Guardar cambios' : 'Crear obra'}
               </button>
-            )}
-          </div>
-        </form>
+              {editandoObraId && (
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-md text-gray-500 hover:text-gray-700"
+                  onClick={cancelarEdicionObra}
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        )}
 
         <div className="space-y-2">
           {obras.map((o) => (
@@ -254,14 +266,27 @@ export default function Obras() {
                   {o.ubicacion} — {o.estado} — ${Number(o.presupuesto_total).toLocaleString('es-CO')}
                 </p>
               </div>
-              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                <button className="text-sm text-obra-700 hover:underline" onClick={() => editarObra(o)}>
-                  Editar
-                </button>
-                <button className="text-sm text-red-600 hover:underline" onClick={() => eliminarObra(o)}>
-                  Eliminar
-                </button>
-              </div>
+              {puedeEditar && (
+                <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                    value={o.estado}
+                    onChange={(e) => cambiarEstado(o, e.target.value)}
+                  >
+                    {ESTADOS_OBRA.map((estado) => (
+                      <option key={estado} value={estado}>
+                        {estado}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="text-sm text-obra-700 hover:underline" onClick={() => editarObra(o)}>
+                    Editar
+                  </button>
+                  <button className="text-sm text-red-600 hover:underline" onClick={() => eliminarObra(o)}>
+                    Eliminar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
           {obras.length === 0 && <p className="text-sm text-gray-500">Todavía no hay obras registradas.</p>}
@@ -273,53 +298,73 @@ export default function Obras() {
           <h3 className="text-lg font-semibold text-gray-800 mb-2">
             Actividades de "{obraSeleccionada.nombre}"
             <span className={`ml-2 text-sm font-normal ${sumaPesos === 100 ? 'text-green-600' : 'text-amber-600'}`}>
-              (suma de pesos: {sumaPesos}%{sumaPesos !== 100 ? ' — debería sumar 100%' : ''})
+              (suma de pesos: {Math.round(sumaPesos)}%{sumaPesos !== 100 ? ' — debería sumar 100%' : ''})
             </span>
           </h3>
 
-          <form
-            onSubmit={guardarActividad}
-            className="grid grid-cols-4 gap-3 mb-4 border border-gray-200 rounded-md p-4"
-          >
-            <input
-              className="border border-gray-300 rounded-md px-3 py-2 col-span-2"
-              placeholder="Nombre de la actividad"
-              value={formActividad.nombre}
-              onChange={(e) => setFormActividad({ ...formActividad, nombre: e.target.value })}
-              required
-            />
-            <input
-              type="number"
-              min="0"
-              max="100"
-              className="border border-gray-300 rounded-md px-3 py-2"
-              placeholder="% del total"
-              value={formActividad.peso_porcentual}
-              onChange={(e) => setFormActividad({ ...formActividad, peso_porcentual: e.target.value })}
-            />
-            <input
-              type="number"
-              min="0"
-              className="border border-gray-300 rounded-md px-3 py-2"
-              placeholder="Presupuesto asignado"
-              value={formActividad.presupuesto_asignado}
-              onChange={(e) => setFormActividad({ ...formActividad, presupuesto_asignado: e.target.value })}
-            />
-            <div className="col-span-4 flex gap-2">
-              <button type="submit" className="bg-obra-600 text-white px-4 py-2 rounded-md hover:bg-obra-700 text-sm">
-                {editandoActividadId ? 'Guardar cambios' : 'Agregar actividad'}
-              </button>
-              {editandoActividadId && (
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-md text-gray-500 hover:text-gray-700 text-sm"
-                  onClick={cancelarEdicionActividad}
-                >
-                  Cancelar
+          {puedeEditar && (
+            <form
+              onSubmit={guardarActividad}
+              className="grid grid-cols-4 gap-3 mb-4 border border-gray-200 rounded-md p-4"
+            >
+              <input
+                className="border border-gray-300 rounded-md px-3 py-2 col-span-2"
+                placeholder="Nombre de la actividad"
+                value={formActividad.nombre}
+                onChange={(e) => setFormActividad({ ...formActividad, nombre: e.target.value })}
+                required
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                className="border border-gray-300 rounded-md px-3 py-2"
+                placeholder="% del total"
+                value={formActividad.pesoPorcentualUi}
+                onChange={(e) => setFormActividad({ ...formActividad, pesoPorcentualUi: e.target.value })}
+              />
+              <input
+                type="number"
+                min="0"
+                className="border border-gray-300 rounded-md px-3 py-2"
+                placeholder="Costo presupuestado"
+                value={formActividad.costo_presupuestado}
+                onChange={(e) => setFormActividad({ ...formActividad, costo_presupuestado: e.target.value })}
+              />
+              <label className="text-xs text-gray-500 flex flex-col gap-1">
+                Inicio programado
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-md px-3 py-2"
+                  value={formActividad.fecha_inicio_programada}
+                  onChange={(e) => setFormActividad({ ...formActividad, fecha_inicio_programada: e.target.value })}
+                />
+              </label>
+              <label className="text-xs text-gray-500 flex flex-col gap-1">
+                Fin programado
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-md px-3 py-2"
+                  value={formActividad.fecha_fin_programada}
+                  onChange={(e) => setFormActividad({ ...formActividad, fecha_fin_programada: e.target.value })}
+                />
+              </label>
+              <div className="col-span-4 flex gap-2">
+                <button type="submit" className="bg-obra-600 text-white px-4 py-2 rounded-md hover:bg-obra-700 text-sm">
+                  {editandoActividadId ? 'Guardar cambios' : 'Agregar actividad'}
                 </button>
-              )}
-            </div>
-          </form>
+                {editandoActividadId && (
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-md text-gray-500 hover:text-gray-700 text-sm"
+                    onClick={cancelarEdicionActividad}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
 
           <div className="space-y-2">
             {actividades.map((a) => (
@@ -327,18 +372,20 @@ export default function Obras() {
                 <div>
                   <p className="font-medium text-gray-800">{a.nombre}</p>
                   <p className="text-sm text-gray-500">
-                    Peso: {a.peso_porcentual}% — Presupuesto: ${Number(a.presupuesto_asignado).toLocaleString('es-CO')}{' '}
-                    — Avance: {a.avance_porcentual}%
+                    Peso: {Math.round((a.peso_porcentual || 0) * 100)}% — Presupuestado: $
+                    {Number(a.costo_presupuestado).toLocaleString('es-CO')} — Estado: {a.estado}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button className="text-sm text-obra-700 hover:underline" onClick={() => editarActividad(a)}>
-                    Editar
-                  </button>
-                  <button className="text-sm text-red-600 hover:underline" onClick={() => eliminarActividad(a)}>
-                    Eliminar
-                  </button>
-                </div>
+                {puedeEditar && (
+                  <div className="flex gap-2">
+                    <button className="text-sm text-obra-700 hover:underline" onClick={() => editarActividad(a)}>
+                      Editar
+                    </button>
+                    <button className="text-sm text-red-600 hover:underline" onClick={() => eliminarActividad(a)}>
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {actividades.length === 0 && (
