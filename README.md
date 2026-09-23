@@ -80,6 +80,8 @@ bandit -r app
 pip-audit
 ```
 
+**Reportes exportables (PDF/XLSX).** `GET /api/obras/{obra_id}/reportes/pdf` y `GET /api/obras/{obra_id}/reportes/xlsx` — roles `administrador`, `gerencia` e `interventor` (no `residente_obra`). Incluyen los datos de la obra, los indicadores de avance físico/financiero, el avance por actividad y las alertas (activas y resueltas). Se generan al vuelo a partir de los mismos datos de `/indicadores` y `/alertas`, sin tablas nuevas. Desde el dashboard del frontend aparecen como botones "Descargar reporte PDF/Excel" cuando el usuario tiene uno de esos roles.
+
 ## Cómo correr el frontend
 
 ```bash
@@ -101,6 +103,6 @@ La app queda en `http://localhost:5173`. Inicia sesión con el usuario administr
 
 ## Estado actual
 
-- **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
-- **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores y alertas, gestión de usuarios (solo administrador).
-- **Pendiente** (próximo frente del roadmap): reportes exportables (PDF/XLSX) para gerencia e interventoría, gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción. La generación automática de alertas por tarea programada (Windows Task Scheduler) ya está lista — ver "Tarea programada (Windows Task Scheduler)" arriba.
+- **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), reportes exportables PDF/XLSX para gerencia e interventoría, formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
+- **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores, alertas y descarga de reportes PDF/Excel (administrador, gerencia, interventor), gestión de usuarios (solo administrador).
+- **Pendiente** (próximo frente del roadmap): gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción. La generación automática de alertas por tarea programada (Windows Task Scheduler) y los reportes exportables (PDF/XLSX) ya están listos — ver las secciones correspondientes arriba.

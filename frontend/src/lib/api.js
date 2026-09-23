@@ -9,6 +9,38 @@ class ApiError extends Error {
   }
 }
 
+async function descargarArchivo(path, nombreArchivo) {
+  const token = obtenerToken()
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  if (res.status === 401) {
+    borrarToken()
+  }
+
+  if (!res.ok) {
+    let mensaje = res.statusText
+    try {
+      const data = await res.json()
+      mensaje = data.mensaje || data.detail || mensaje
+    } catch {
+      // el cuerpo no era JSON, se usa el statusText
+    }
+    throw new ApiError(mensaje)
+  }
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombreArchivo
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  URL.revokeObjectURL(url)
+}
+
 async function request(path, options = {}) {
   const token = obtenerToken()
   const headers = { ...(options.headers || {}) }
@@ -86,6 +118,12 @@ export const api = {
   // Alertas
   listarAlertas: (obraId) => request(`/api/obras/${obraId}/alertas`),
   resolverAlerta: (alertaId) => request(`/api/alertas/${alertaId}/resolver`, { method: 'PATCH' }),
+
+  // Reportes exportables (gerencia / interventoría)
+  descargarReportePdf: (obraId, nombreObra) =>
+    descargarArchivo(`/api/obras/${obraId}/reportes/pdf`, `reporte_${nombreObra}.pdf`),
+  descargarReporteXlsx: (obraId, nombreObra) =>
+    descargarArchivo(`/api/obras/${obraId}/reportes/xlsx`, `reporte_${nombreObra}.xlsx`),
 }
 
 export { API_URL, ApiError }

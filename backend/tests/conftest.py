@@ -75,5 +75,10 @@ def token_interventor(client, db):
     return crear_usuario_y_token(client, db, "interventor", "interventor@test.com")
 
 
+@pytest.fixture
+def token_gerencia(client, db):
+    return crear_usuario_y_token(client, db, "gerencia", "gerencia@test.com")
+
+
 def auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}

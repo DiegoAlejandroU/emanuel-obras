@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
+import { usuarioActualDesdeToken } from '../lib/auth.js'
+
+const ROLES_CON_REPORTES = ['administrador', 'gerencia', 'interventor']
 
 export default function Dashboard() {
   const [obras, setObras] = useState([])
@@ -7,6 +10,11 @@ export default function Dashboard() {
   const [indicadores, setIndicadores] = useState(null)
   const [alertas, setAlertas] = useState([])
   const [error, setError] = useState(null)
+  const [descargando, setDescargando] = useState(null)
+
+  const usuario = usuarioActualDesdeToken()
+  const puedeVerReportes = usuario && ROLES_CON_REPORTES.includes(usuario.rol)
+  const obraSeleccionada = obras.find((o) => String(o.id) === String(obraId))
 
   useEffect(() => {
     api.listarObras().then(setObras).catch(() => setError('No se pudo conectar con la API. ¿Está corriendo el backend?'))
@@ -27,24 +35,62 @@ export default function Dashboard() {
     }
   }
 
+  async function descargarReporte(formato) {
+    if (!obraSeleccionada) return
+    setDescargando(formato)
+    setError(null)
+    try {
+      if (formato === 'pdf') {
+        await api.descargarReportePdf(obraSeleccionada.id, obraSeleccionada.nombre)
+      } else {
+        await api.descargarReporteXlsx(obraSeleccionada.id, obraSeleccionada.nombre)
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDescargando(null)
+    }
+  }
+
   return (
     <div className="max-w-4xl">
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Indicadores de avance</h2>
 
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
-      <select
-        className="border border-gray-300 rounded-md px-3 py-2 mb-6"
-        value={obraId ?? ''}
-        onChange={(e) => setObraId(e.target.value || null)}
-      >
-        <option value="">Selecciona una obra…</option>
-        {obras.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.nombre}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <select
+          className="border border-gray-300 rounded-md px-3 py-2"
+          value={obraId ?? ''}
+          onChange={(e) => setObraId(e.target.value || null)}
+        >
+          <option value="">Selecciona una obra…</option>
+          {obras.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.nombre}
+            </option>
+          ))}
+        </select>
+
+        {puedeVerReportes && obraSeleccionada && (
+          <>
+            <button
+              className="text-sm border border-obra-600 text-obra-700 rounded-md px-3 py-2 hover:bg-obra-50 disabled:opacity-50"
+              disabled={descargando !== null}
+              onClick={() => descargarReporte('pdf')}
+            >
+              {descargando === 'pdf' ? 'Generando PDF…' : 'Descargar reporte PDF'}
+            </button>
+            <button
+              className="text-sm border border-obra-600 text-obra-700 rounded-md px-3 py-2 hover:bg-obra-50 disabled:opacity-50"
+              disabled={descargando !== null}
+              onClick={() => descargarReporte('xlsx')}
+            >
+              {descargando === 'xlsx' ? 'Generando Excel…' : 'Descargar reporte Excel'}
+            </button>
+          </>
+        )}
+      </div>
 
       {indicadores && (
         <div className="space-y-6">

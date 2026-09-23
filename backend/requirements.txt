@@ -12,6 +12,8 @@ python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
 email-validator==2.2.0
 slowapi==0.1.9
+reportlab==4.2.5
+openpyxl==3.1.5
 
 # Calidad y pruebas (sección 10 del estándar)
 pytest==8.3.3
