@@ -47,6 +47,8 @@ cp .env.example .env         # ajustar DATABASE_URL y generar un SECRET_KEY prop
 uvicorn app.main:app --reload
 ```
 
+**En Windows**, `backend\setup_entorno.bat` hace los tres primeros pasos (crea `.venv`, instala `requirements.txt` y copia `.env.example` a `.env` si no existe) — correrlo una sola vez con doble clic o `setup_entorno.bat` desde `backend\`. Después hay que editar `backend\.env` con la clave real del usuario `postgres` y crear la base de datos (`psql -U postgres -c "CREATE DATABASE emanuel_obras;"`) antes de arrancar el backend.
+
 La API queda en `http://localhost:8000` y la documentación interactiva en `http://localhost:8000/docs`.
 
 **Primer usuario administrador** (necesario para poder crear el resto de usuarios desde la API/UI):
