@@ -21,7 +21,7 @@ def listar_alertas(obra_id: int, estado: str | None = None, db: Session = Depend
 @router.patch(
     "/alertas/{alerta_id}/resolver",
     response_model=schemas.AlertaRespuesta,
-    dependencies=[Depends(requiere_rol("administrador", "interventor", "gerencia"))],
+    dependencies=[Depends(requiere_rol("administrador", "interventor"))],
 )
 def resolver_alerta(alerta_id: int, db: Session = Depends(get_db)):
     return alertas_service.resolver_alerta(db, alerta_id)

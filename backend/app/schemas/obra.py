@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ObraBase(BaseModel):
@@ -10,7 +10,7 @@ class ObraBase(BaseModel):
     ubicacion: Optional[str] = None
     fecha_inicio: Optional[date] = None
     fecha_fin_estimada: Optional[date] = None
-    presupuesto_total: Optional[float] = 0
+    presupuesto_total: Optional[float] = Field(default=0, ge=0)
 
 
 class ObraCrear(ObraBase):
@@ -23,7 +23,7 @@ class ObraActualizar(BaseModel):
     ubicacion: Optional[str] = None
     fecha_inicio: Optional[date] = None
     fecha_fin_estimada: Optional[date] = None
-    presupuesto_total: Optional[float] = None
+    presupuesto_total: Optional[float] = Field(default=None, ge=0)
 
 
 class ObraCambioEstado(BaseModel):
