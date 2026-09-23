@@ -1,0 +1,7 @@
+Migraciones Alembic. Generar una nueva con:
+
+    alembic revision --autogenerate -m "descripcion"
+
+Aplicar con:
+
+    alembic upgrade head

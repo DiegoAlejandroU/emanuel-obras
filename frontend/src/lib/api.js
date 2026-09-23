@@ -1,6 +1,9 @@
 import { borrarToken, obtenerToken } from './auth.js'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// "??" y no "||": en producción VITE_API_URL se define como cadena
+// vacía a propósito (mismo origen, ver frontend/Dockerfile) y "" es
+// falsy en JS, así que "||" la pisaría con el localhost de desarrollo.
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 class ApiError extends Error {
   constructor(mensaje, errores) {

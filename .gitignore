@@ -18,3 +18,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Producción (despliegue)
+backend/.env.prod
+deploy/.env

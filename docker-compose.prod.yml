@@ -1,0 +1,66 @@
+# Despliegue de producción genérico: base de datos + backend + frontend +
+# Caddy (HTTPS automático). No apunta a ningún servidor/dominio en
+# particular — deploy/.env y backend/.env.prod son los que se completan al
+# desplegar (ver deploy/.env.example, backend/.env.prod.example y la
+# sección "Despliegue en producción" del README).
+#
+# Uso:
+#   cp deploy/.env.example deploy/.env               # completar
+#   cp backend/.env.prod.example backend/.env.prod   # completar
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - backend/.env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

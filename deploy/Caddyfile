@@ -1,0 +1,20 @@
+# Reverse proxy con HTTPS automático (Let's Encrypt) vía Caddy.
+#
+# DOMAIN se define en deploy/.env (ver deploy/.env.example). Mientras no
+# haya un dominio real, se puede dejar DOMAIN=localhost — Caddy sirve por
+# HTTP en local en ese caso y no intenta pedir un certificado.
+#
+# Cuando haya un dominio real: apuntar su registro A/AAAA al servidor,
+# poner DOMAIN=tu-dominio.com en deploy/.env y levantar de nuevo — Caddy
+# obtiene y renueva el certificado solo, sin configuración adicional.
+{$DOMAIN:localhost} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:80
+	}
+}

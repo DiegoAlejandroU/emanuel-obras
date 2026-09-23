@@ -101,8 +101,73 @@ La app queda en `http://localhost:5173`. Inicia sesión con el usuario administr
 | `residente_obra` | Registrar y editar bitácoras propias (mientras estén en borrador/rechazada), ver obras y dashboard |
 | `interventor` | Aprobar o rechazar bitácoras, resolver alertas, ver todo |
 
+## Despliegue en producción
+
+Despliegue genérico con Docker Compose + Caddy (HTTPS automático vía Let's
+Encrypt) — no apunta a ningún servidor ni dominio en particular, para poder
+apuntarlo a cualquier VPS/dominio cuando exista.
+
+**Servicios** (`docker-compose.prod.yml`):
+
+| Servicio | Imagen/build | Rol |
+| --- | --- | --- |
+| `db` | `postgres:16-alpine` | Base de datos, con volumen persistente |
+| `backend` | `backend/Dockerfile` | API FastAPI servida con gunicorn (`uvicorn.workers.UvicornWorker`); corre `alembic upgrade head` al arrancar |
+| `frontend` | `frontend/Dockerfile` | Build estático de Vite servido por nginx |
+| `caddy` | `caddy:2-alpine` | Reverse proxy: `/api/*` → `backend`, el resto → `frontend`; certificado HTTPS automático si `DOMAIN` es un dominio real |
+
+### Pasos
+
+1. Copiar las plantillas de variables de entorno y completarlas:
+
+   ```bash
+   cp deploy/.env.example deploy/.env
+   cp backend/.env.prod.example backend/.env.prod
+   ```
+
+   En `deploy/.env`: `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (deben
+   coincidir con la `DATABASE_URL` de `backend/.env.prod`, que usa `db` como
+   host) y `DOMAIN` (el dominio real, o `localhost` mientras no haya uno).
+
+   En `backend/.env.prod`: la misma `DATABASE_URL`, un `SECRET_KEY` generado
+   con `python -c "import secrets; print(secrets.token_hex(32))"`, y
+   `ALLOWED_ORIGIN=https://TU_DOMINIO`.
+
+   Ninguno de los dos archivos se versiona (ver `.gitignore`) — solo las
+   plantillas `*.example`.
+
+2. Levantar todo:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+   El backend aplica las migraciones de Alembic automáticamente antes de
+   arrancar (`backend/docker-entrypoint.sh`). Falta crear el primer usuario
+   administrador — hacerlo una vez, dentro del contenedor:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec backend python -m scripts.crear_usuario_admin
+   ```
+
+3. Con `DOMAIN` en `deploy/.env` apuntando a un dominio real (con su
+   registro DNS ya apuntando al servidor), Caddy obtiene y renueva el
+   certificado HTTPS sin configuración adicional. Con `DOMAIN=localhost`
+   sirve por HTTP para probar localmente.
+
+### Migraciones (Alembic)
+
+`backend/alembic/` — `alembic upgrade head` aplica las migraciones
+pendientes (se corre solo al arrancar el contenedor, ver arriba). Para
+generar una migración nueva tras cambiar los modelos:
+
+```bash
+cd backend
+alembic revision -m "descripcion_del_cambio"  # o --autogenerate si aplica
+```
+
 ## Estado actual
 
 - **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), reportes exportables PDF/XLSX para gerencia e interventoría, formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
 - **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores, alertas y descarga de reportes PDF/Excel (administrador, gerencia, interventor), gestión de usuarios (solo administrador).
-- **Pendiente** (próximo frente del roadmap): gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción. La generación automática de alertas por tarea programada (Windows Task Scheduler) y los reportes exportables (PDF/XLSX) ya están listos — ver las secciones correspondientes arriba.
+- **Pendiente** (próximo frente del roadmap): gráficas más elaboradas en el dashboard. La generación automática de alertas por tarea programada (Windows Task Scheduler), los reportes exportables (PDF/XLSX) y el despliegue de producción con HTTPS (Docker Compose + Caddy) ya están listos — ver las secciones correspondientes arriba.
