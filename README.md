@@ -55,11 +55,19 @@ La API queda en `http://localhost:8000` y la documentación interactiva en `http
 python -m scripts.crear_usuario_admin
 ```
 
-**Generar alertas de retraso** (pensado para un cron/Task Scheduler periódico — nunca se crean por POST del usuario):
+**Generar alertas de retraso** (nunca se crean por POST del usuario — regla R9 del estándar):
 
 ```bash
 python -m scripts.generar_alertas
 ```
+
+**Tarea programada (Windows Task Scheduler).** `backend/scripts/tarea_programada_alertas.bat` ejecuta el comando anterior usando el Python del `.venv` del proyecto (o el `python` del PATH si no hay `.venv`) y guarda cada corrida en `backend/logs/alertas.log`. Para registrarla, una sola vez, en `cmd` o PowerShell normal (no requiere permisos de administrador):
+
+```
+schtasks /create /tn "EmanuelObras - Alertas de retraso" /tr "C:\Users\diego\Documents\emanuel-obras\backend\scripts\tarea_programada_alertas.bat" /sc daily /st 06:00 /rl LIMITED /f
+```
+
+Esto la deja corriendo todos los días a las 6:00 a. m. (ajustable con `/st`). Para revisar el historial: `type backend\logs\alertas.log`. Para quitarla: `schtasks /delete /tn "EmanuelObras - Alertas de retraso" /f`.
 
 ### Pruebas y calidad (checklist del estándar)
 
@@ -93,4 +101,4 @@ La app queda en `http://localhost:5173`. Inicia sesión con el usuario administr
 
 - **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
 - **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores y alertas, gestión de usuarios (solo administrador).
-- **Pendiente** (próximo frente del roadmap, no incluido en este retrofit): generación automática de alertas por tarea programada (el cálculo ya existe en `alertas_service.generar_alertas_retraso`, falta programarlo), reportes exportables (PDF/XLSX) para gerencia e interventoría, gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción.
+- **Pendiente** (próximo frente del roadmap): reportes exportables (PDF/XLSX) para gerencia e interventoría, gráficas más elaboradas en el dashboard, HTTPS/despliegue de producción. La generación automática de alertas por tarea programada (Windows Task Scheduler) ya está lista — ver "Tarea programada (Windows Task Scheduler)" arriba.
