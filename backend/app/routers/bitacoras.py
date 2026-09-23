@@ -11,6 +11,7 @@ from ..services import bitacoras_service
 router = APIRouter(prefix="/api", tags=["Bitácoras"])
 
 _ROLES_ESCRITURA = ("administrador", "residente_obra")
+_ROLES_CAMBIO_ESTADO = ("administrador", "residente_obra", "interventor")
 
 
 @router.get(
@@ -25,10 +26,14 @@ def listar_bitacoras(obra_id: int, fecha: date_type | None = None, db: Session =
 @router.post(
     "/obras/{obra_id}/bitacoras",
     response_model=schemas.BitacoraRespuesta,
-    dependencies=[Depends(requiere_rol(*_ROLES_ESCRITURA))],
 )
-def crear_bitacora(obra_id: int, datos: schemas.BitacoraCrear, db: Session = Depends(get_db)):
-    return bitacoras_service.crear_bitacora(db, obra_id, datos)
+def crear_bitacora(
+    obra_id: int,
+    datos: schemas.BitacoraCrear,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(requiere_rol(*_ROLES_ESCRITURA)),
+):
+    return bitacoras_service.crear_bitacora(db, obra_id, datos, usuario)
 
 
 @router.get(
@@ -43,10 +48,14 @@ def obtener_bitacora(bitacora_id: int, db: Session = Depends(get_db)):
 @router.put(
     "/bitacoras/{bitacora_id}",
     response_model=schemas.BitacoraRespuesta,
-    dependencies=[Depends(requiere_rol(*_ROLES_ESCRITURA))],
 )
-def actualizar_bitacora(bitacora_id: int, datos: schemas.BitacoraActualizar, db: Session = Depends(get_db)):
-    return bitacoras_service.actualizar_bitacora(db, bitacora_id, datos)
+def actualizar_bitacora(
+    bitacora_id: int,
+    datos: schemas.BitacoraActualizar,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(requiere_rol(*_ROLES_ESCRITURA)),
+):
+    return bitacoras_service.actualizar_bitacora(db, bitacora_id, datos, usuario)
 
 
 @router.patch(
@@ -57,7 +66,7 @@ def cambiar_estado_bitacora(
     bitacora_id: int,
     datos: schemas.BitacoraCambioEstado,
     db: Session = Depends(get_db),
-    usuario: models.Usuario = Depends(verificar_token),
+    usuario: models.Usuario = Depends(requiere_rol(*_ROLES_CAMBIO_ESTADO)),
 ):
     return bitacoras_service.cambiar_estado_bitacora(
         db, bitacora_id, datos.estado, usuario, datos.motivo_rechazo
@@ -67,8 +76,11 @@ def cambiar_estado_bitacora(
 @router.delete(
     "/bitacoras/{bitacora_id}",
     status_code=204,
-    dependencies=[Depends(requiere_rol(*_ROLES_ESCRITURA))],
 )
-def eliminar_bitacora(bitacora_id: int, db: Session = Depends(get_db)):
-    bitacoras_service.eliminar_bitacora(db, bitacora_id)
+def eliminar_bitacora(
+    bitacora_id: int,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(requiere_rol(*_ROLES_ESCRITURA)),
+):
+    bitacoras_service.eliminar_bitacora(db, bitacora_id, usuario)
     return Response(status_code=204)
