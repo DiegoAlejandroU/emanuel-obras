@@ -65,6 +65,15 @@ def indicadores_obra(obra_id: int, db: Session = Depends(get_db)):
     return obras_service.calcular_indicadores(db, obra_id)
 
 
+@router.get(
+    "/{obra_id}/indicadores/historico",
+    response_model=list[schemas.PuntoHistoricoAvance],
+    dependencies=[Depends(verificar_token)],
+)
+def historico_avance_obra(obra_id: int, db: Session = Depends(get_db)):
+    return obras_service.historico_avance(db, obra_id)
+
+
 # ---------- Actividades anidadas bajo /api/obras/{obraId}/actividades ----------
 
 @router.get(

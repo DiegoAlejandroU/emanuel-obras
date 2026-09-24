@@ -84,6 +84,8 @@ pip-audit
 
 **Fotos de avance.** Al registrar el avance de una actividad en la bitácora (`residente_obra`/`administrador`) se pueden adjuntar fotos (JPG/PNG/WEBP, máx. 8 MB c/u, hasta 12 por registro). Los archivos se guardan en disco bajo `backend/uploads/` (montado como volumen en `docker-compose.prod.yml` para que sobrevivan a un redeploy) — la base de datos solo guarda el metadato (`fotos_avance`). Mismas reglas que el resto de la bitácora: solo se pueden agregar/quitar fotos mientras esté en `borrador`/`rechazada` (R4), y un `residente_obra` solo sobre sus propias bitácoras. Endpoints: `POST /api/bitacoras/registros-avance/{id}/fotos` (multipart), `GET /api/bitacoras/fotos/{id}` (requiere el mismo token que ver la bitácora), `DELETE /api/bitacoras/fotos/{id}`.
 
+**Gráficas del dashboard.** El dashboard muestra dos gráficas además de los indicadores numéricos: una curva de avance físico vs. financiero en el tiempo (`GET /api/obras/{obra_id}/indicadores/historico`, un punto por cada fecha con al menos una bitácora `aprobada`, calculado con la misma fórmula de ponderación que `/indicadores` para que nunca puedan divergir) y un gráfico de barras horizontales de avance por actividad, ordenado de la más atrasada a la más adelantada. Son componentes SVG/HTML propios (`frontend/src/components/GraficaAvanceHistorico.jsx`, `GraficaAvancePorActividad.jsx`), sin dependencias nuevas, con leyenda, tooltip al pasar el mouse y una paleta de color derivada del verde de marca (`obra-600`) validada para daltonismo.
+
 ## Cómo correr el frontend
 
 ```bash

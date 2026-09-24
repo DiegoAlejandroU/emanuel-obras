@@ -113,6 +113,7 @@ export const api = {
     request(`/api/obras/${obraId}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) }),
   eliminarObra: (obraId) => request(`/api/obras/${obraId}`, { method: 'DELETE' }),
   indicadoresObra: (obraId) => request(`/api/obras/${obraId}/indicadores`),
+  historicoAvanceObra: (obraId) => request(`/api/obras/${obraId}/indicadores/historico`),
 
   // Actividades
   listarActividades: (obraId) => request(`/api/obras/${obraId}/actividades`),

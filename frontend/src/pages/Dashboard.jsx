@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import { usuarioActualDesdeToken } from '../lib/auth.js'
+import GraficaAvanceHistorico from '../components/GraficaAvanceHistorico.jsx'
+import GraficaAvancePorActividad from '../components/GraficaAvancePorActividad.jsx'
 
 const ROLES_CON_REPORTES = ['administrador', 'gerencia', 'interventor']
 
@@ -8,6 +10,7 @@ export default function Dashboard() {
   const [obras, setObras] = useState([])
   const [obraId, setObraId] = useState(null)
   const [indicadores, setIndicadores] = useState(null)
+  const [historico, setHistorico] = useState([])
   const [alertas, setAlertas] = useState([])
   const [error, setError] = useState(null)
   const [descargando, setDescargando] = useState(null)
@@ -24,6 +27,7 @@ export default function Dashboard() {
     if (!obraId) return
     api.indicadoresObra(obraId).then(setIndicadores).catch(() => setError('No se pudieron cargar los indicadores de la obra.'))
     api.listarAlertas(obraId).then(setAlertas).catch(() => setError('No se pudieron cargar las alertas de la obra.'))
+    api.historicoAvanceObra(obraId).then(setHistorico).catch(() => setError('No se pudo cargar el histórico de avance de la obra.'))
   }, [obraId])
 
   async function resolver(alerta) {
@@ -112,28 +116,13 @@ export default function Dashboard() {
           </div>
 
           <div>
+            <h3 className="text-sm font-semibold text-gray-600 mb-2">Avance en el tiempo</h3>
+            <GraficaAvanceHistorico puntos={historico} />
+          </div>
+
+          <div>
             <h3 className="text-sm font-semibold text-gray-600 mb-2">Avance por actividad</h3>
-            <div className="space-y-2">
-              {indicadores.actividades.map((a) => (
-                <div key={a.actividad_id}>
-                  <div className="flex justify-between text-sm text-gray-600 mb-1">
-                    <span>
-                      {a.nombre} <span className="text-gray-400">(peso {Math.round(a.peso_porcentual * 100)}%)</span>
-                    </span>
-                    <span>{a.avance_acumulado_porcentual}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-obra-600 h-2 rounded-full"
-                      style={{ width: `${Math.min(100, a.avance_acumulado_porcentual)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              {indicadores.actividades.length === 0 && (
-                <p className="text-sm text-gray-500">Esta obra no tiene actividades definidas.</p>
-              )}
-            </div>
+            <GraficaAvancePorActividad actividades={indicadores.actividades} />
           </div>
 
           <div>
