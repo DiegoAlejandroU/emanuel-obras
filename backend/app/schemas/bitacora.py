@@ -12,10 +12,21 @@ class RegistroAvanceActividadCrear(BaseModel):
     observaciones: Optional[str] = None
 
 
+class FotoAvanceRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    registro_avance_id: int
+    nombre_original: str
+    content_type: str
+    tamano_bytes: int
+    creado_en: datetime
+
+
 class RegistroAvanceActividadRespuesta(RegistroAvanceActividadCrear):
     model_config = ConfigDict(from_attributes=True)
     id: int
     bitacora_id: int
+    fotos: list[FotoAvanceRespuesta] = []
 
 
 # ---------- Registro de personal ----------

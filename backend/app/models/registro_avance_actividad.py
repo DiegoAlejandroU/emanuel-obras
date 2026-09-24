@@ -17,3 +17,4 @@ class RegistroAvanceActividad(Base):
 
     bitacora = relationship("BitacoraDiaria", back_populates="registros_avance")
     actividad = relationship("Actividad", back_populates="registros_avance")
+    fotos = relationship("FotoAvance", back_populates="registro_avance", cascade="all, delete-orphan")

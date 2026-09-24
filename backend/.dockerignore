@@ -7,3 +7,4 @@ logs
 .env
 .env.prod
 test_emanuel_obras.db
+uploads

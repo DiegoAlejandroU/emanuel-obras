@@ -44,10 +44,28 @@ async function descargarArchivo(path, nombreArchivo) {
   URL.revokeObjectURL(url)
 }
 
+async function obtenerImagenUrl(path) {
+  const token = obtenerToken()
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  if (res.status === 401) {
+    borrarToken()
+  }
+  if (!res.ok) {
+    throw new ApiError(res.statusText)
+  }
+
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
 async function request(path, options = {}) {
   const token = obtenerToken()
   const headers = { ...(options.headers || {}) }
-  if (!(options.body instanceof URLSearchParams)) {
+  const esBodyEspecial = options.body instanceof URLSearchParams || options.body instanceof FormData
+  if (!esBodyEspecial) {
     headers['Content-Type'] = 'application/json'
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
@@ -117,6 +135,18 @@ export const api = {
       body: JSON.stringify({ estado, motivo_rechazo: motivoRechazo || null }),
     }),
   eliminarBitacora: (bitacoraId) => request(`/api/bitacoras/${bitacoraId}`, { method: 'DELETE' }),
+
+  // Fotos de avance
+  subirFotosAvance: (registroAvanceId, archivos) => {
+    const formData = new FormData()
+    archivos.forEach((archivo) => formData.append('archivos', archivo))
+    return request(`/api/bitacoras/registros-avance/${registroAvanceId}/fotos`, {
+      method: 'POST',
+      body: formData,
+    })
+  },
+  obtenerUrlFotoAvance: (fotoId) => obtenerImagenUrl(`/api/bitacoras/fotos/${fotoId}`),
+  eliminarFotoAvance: (fotoId) => request(`/api/bitacoras/fotos/${fotoId}`, { method: 'DELETE' }),
 
   // Alertas
   listarAlertas: (obraId) => request(`/api/obras/${obraId}/alertas`),

@@ -33,6 +33,8 @@ services:
     restart: unless-stopped
     env_file:
       - backend/.env.prod
+    volumes:
+      - uploads_avances:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -64,3 +66,4 @@ volumes:
   db_data:
   caddy_data:
   caddy_config:
+  uploads_avances:

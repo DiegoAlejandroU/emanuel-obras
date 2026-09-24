@@ -82,6 +82,8 @@ pip-audit
 
 **Reportes exportables (PDF/XLSX).** `GET /api/obras/{obra_id}/reportes/pdf` y `GET /api/obras/{obra_id}/reportes/xlsx` — roles `administrador`, `gerencia` e `interventor` (no `residente_obra`). Incluyen los datos de la obra, los indicadores de avance físico/financiero, el avance por actividad y las alertas (activas y resueltas). Se generan al vuelo a partir de los mismos datos de `/indicadores` y `/alertas`, sin tablas nuevas. Desde el dashboard del frontend aparecen como botones "Descargar reporte PDF/Excel" cuando el usuario tiene uno de esos roles.
 
+**Fotos de avance.** Al registrar el avance de una actividad en la bitácora (`residente_obra`/`administrador`) se pueden adjuntar fotos (JPG/PNG/WEBP, máx. 8 MB c/u, hasta 12 por registro). Los archivos se guardan en disco bajo `backend/uploads/` (montado como volumen en `docker-compose.prod.yml` para que sobrevivan a un redeploy) — la base de datos solo guarda el metadato (`fotos_avance`). Mismas reglas que el resto de la bitácora: solo se pueden agregar/quitar fotos mientras esté en `borrador`/`rechazada` (R4), y un `residente_obra` solo sobre sus propias bitácoras. Endpoints: `POST /api/bitacoras/registros-avance/{id}/fotos` (multipart), `GET /api/bitacoras/fotos/{id}` (requiere el mismo token que ver la bitácora), `DELETE /api/bitacoras/fotos/{id}`.
+
 ## Cómo correr el frontend
 
 ```bash

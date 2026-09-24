@@ -44,7 +44,7 @@ def _validar_responsable(db: Session, responsable_id: int) -> None:
         raise AppError(404, "El responsable indicado no existe")
 
 
-def _verificar_propiedad_o_403(bitacora_o_datos_responsable_id: int, usuario: models.Usuario) -> None:
+def verificar_propiedad_o_403(bitacora_o_datos_responsable_id: int, usuario: models.Usuario) -> None:
     """Un residente_obra solo puede registrar/editar/eliminar sus propias
     bitácoras (README: "Registrar y editar bitácoras propias"). administrador
     e interventor no tienen esta restricción."""
@@ -60,7 +60,7 @@ def crear_bitacora(
     if obra.estado != "en_ejecucion":  # R2
         raise AppError(409, "No se puede registrar una bitácora para una obra que no esté en ejecución")
 
-    _verificar_propiedad_o_403(datos.responsable_id, usuario)
+    verificar_propiedad_o_403(datos.responsable_id, usuario)
 
     fecha = datos.fecha or date_type.today()
 
@@ -114,7 +114,7 @@ def actualizar_bitacora(
     db: Session, bitacora_id: int, cambios: schemas.BitacoraActualizar, usuario: models.Usuario
 ) -> models.BitacoraDiaria:
     bitacora = obtener_bitacora_o_404(db, bitacora_id)
-    _verificar_propiedad_o_403(bitacora.responsable_id, usuario)
+    verificar_propiedad_o_403(bitacora.responsable_id, usuario)
 
     if bitacora.estado not in ESTADOS_EDITABLES:  # R4
         raise AppError(409, "Una bitácora en este estado no se puede editar")
@@ -151,7 +151,7 @@ def cambiar_estado_bitacora(
     motivo_rechazo: str | None = None,
 ) -> models.BitacoraDiaria:
     bitacora = obtener_bitacora_o_404(db, bitacora_id)
-    _verificar_propiedad_o_403(bitacora.responsable_id, usuario)
+    verificar_propiedad_o_403(bitacora.responsable_id, usuario)
 
     transiciones_permitidas = TRANSICIONES_VALIDAS.get(bitacora.estado, set())
     if nuevo_estado not in transiciones_permitidas:  # R10
@@ -186,7 +186,7 @@ def cambiar_estado_bitacora(
 
 def eliminar_bitacora(db: Session, bitacora_id: int, usuario: models.Usuario) -> None:
     bitacora = obtener_bitacora_o_404(db, bitacora_id)
-    _verificar_propiedad_o_403(bitacora.responsable_id, usuario)
+    verificar_propiedad_o_403(bitacora.responsable_id, usuario)
     if bitacora.estado == "aprobada":  # R4
         raise AppError(409, "Una bitácora aprobada no se puede eliminar")
     db.delete(bitacora)

@@ -70,16 +70,21 @@ export default function Bitacora() {
     setGuardando(true)
     setMensaje(null)
 
-    const registros_avance = Object.entries(avancesPorActividad)
+    const registrosConFotos = Object.entries(avancesPorActividad)
       .map(([actividadId, valores]) => ({
         actividad_id: Number(actividadId),
         avance_del_dia: Number(valores.avance_del_dia) || 0,
         observaciones: valores.observaciones || null,
+        archivos: valores.archivos || [],
       }))
-      .filter((a) => a.avance_del_dia > 0 || a.observaciones)
+      .filter((a) => a.avance_del_dia > 0 || a.observaciones || a.archivos.length > 0)
+
+    // El backend recibe la bitácora como un solo JSON (sin archivos); las
+    // fotos se suben aparte, una vez que cada registro de avance ya tiene id.
+    const registros_avance = registrosConFotos.map(({ archivos, ...resto }) => resto)
 
     try {
-      await api.crearBitacora(obraId, {
+      const bitacoraCreada = await api.crearBitacora(obraId, {
         responsable_id: usuario.id,
         ...form,
         registros_avance,
@@ -87,7 +92,24 @@ export default function Bitacora() {
         registros_material: materiales,
         incidentes,
       })
-      setMensaje('Registro guardado en borrador. Recuerda enviarlo para que el interventor lo revise.')
+
+      const pendientesDeFoto = registrosConFotos.filter((r) => r.archivos.length > 0)
+      const erroresFotos = []
+      for (const pendiente of pendientesDeFoto) {
+        const creado = bitacoraCreada.registros_avance.find((r) => r.actividad_id === pendiente.actividad_id)
+        if (!creado) continue
+        try {
+          await api.subirFotosAvance(creado.id, pendiente.archivos)
+        } catch (err) {
+          erroresFotos.push(`${nombreActividad(pendiente.actividad_id)}: ${err.message}`)
+        }
+      }
+
+      setMensaje(
+        erroresFotos.length > 0
+          ? `Registro guardado, pero no se pudieron subir algunas fotos: ${erroresFotos.join('; ')}`
+          : 'Registro guardado en borrador. Recuerda enviarlo para que el interventor lo revise.'
+      )
       setForm(FORM_VACIO)
       setAvancesPorActividad({})
       setPersonal([])
@@ -98,6 +120,15 @@ export default function Bitacora() {
       setMensaje(`No se pudo guardar el registro: ${err.message}`)
     } finally {
       setGuardando(false)
+    }
+  }
+
+  async function eliminarFotoDeAvance(fotoId) {
+    try {
+      await api.eliminarFotoAvance(fotoId)
+      cargarObra(obraId)
+    } catch (err) {
+      setMensaje(`No se pudo eliminar la foto: ${err.message}`)
     }
   }
 
@@ -180,7 +211,7 @@ export default function Bitacora() {
               <h3 className="text-sm font-semibold text-gray-600 mb-2">Avance por actividad</h3>
               <div className="space-y-2">
                 {actividades.map((a) => (
-                  <div key={a.id} className="border border-gray-200 rounded-md p-3 grid grid-cols-3 gap-2 items-center">
+                  <div key={a.id} className="border border-gray-200 rounded-md p-3 grid grid-cols-4 gap-2 items-center">
                     <span className="text-sm text-gray-700">{a.nombre}</span>
                     <input
                       type="number"
@@ -199,6 +230,20 @@ export default function Bitacora() {
                       value={avancesPorActividad[a.id]?.observaciones ?? ''}
                       onChange={(e) => actualizarAvance(a.id, 'observaciones', e.target.value)}
                     />
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        className="text-xs w-full"
+                        onChange={(e) => actualizarAvance(a.id, 'archivos', Array.from(e.target.files))}
+                      />
+                      {avancesPorActividad[a.id]?.archivos?.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {avancesPorActividad[a.id].archivos.length} foto(s) seleccionada(s)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -283,6 +328,21 @@ export default function Bitacora() {
                   <li key={av.id}>
                     {nombreActividad(av.actividad_id)}: +{av.avance_del_dia}%
                     {av.observaciones ? ` — ${av.observaciones}` : ''}
+                    {av.fotos?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1 mb-2 ml-4">
+                        {av.fotos.map((foto) => (
+                          <FotoAvanceThumbnail
+                            key={foto.id}
+                            foto={foto}
+                            onEliminar={
+                              puedeCrear && ['borrador', 'rechazada'].includes(r.estado)
+                                ? () => eliminarFotoDeAvance(foto.id)
+                                : null
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -328,6 +388,56 @@ export default function Bitacora() {
           <p className="text-sm text-gray-500">Esta obra todavía no tiene bitácoras registradas.</p>
         )}
       </div>
+    </div>
+  )
+}
+
+function FotoAvanceThumbnail({ foto, onEliminar }) {
+  const [url, setUrl] = useState(null)
+
+  useEffect(() => {
+    let cancelado = false
+    let urlCreada = null
+    api
+      .obtenerUrlFotoAvance(foto.id)
+      .then((u) => {
+        if (cancelado) {
+          URL.revokeObjectURL(u)
+          return
+        }
+        urlCreada = u
+        setUrl(u)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+      if (urlCreada) URL.revokeObjectURL(urlCreada)
+    }
+  }, [foto.id])
+
+  return (
+    <div className="relative w-16 h-16">
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer" title={foto.nombre_original}>
+          <img
+            src={url}
+            alt={foto.nombre_original}
+            className="w-16 h-16 object-cover rounded-md border border-gray-200"
+          />
+        </a>
+      ) : (
+        <div className="w-16 h-16 bg-gray-100 rounded-md animate-pulse" />
+      )}
+      {onEliminar && (
+        <button
+          type="button"
+          onClick={onEliminar}
+          title="Eliminar foto"
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 leading-none text-xs bg-white text-red-600 border border-red-200 rounded-full"
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }

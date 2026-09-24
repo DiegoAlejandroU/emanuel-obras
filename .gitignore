@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 backend/logs/
+backend/uploads/
 .venv/
 .venv-test/
 venv/
