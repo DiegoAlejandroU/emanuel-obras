@@ -57,7 +57,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Indicadores de avance</h2>
 
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}

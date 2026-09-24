@@ -28,7 +28,7 @@ export default function Usuarios() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-800">Usuarios</h2>
       {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
 

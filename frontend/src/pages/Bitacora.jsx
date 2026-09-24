@@ -163,7 +163,7 @@ export default function Bitacora() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Bitácora diaria de obra</h2>
 
       <select

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 const ESTADOS_OBRA = ['planificada', 'en_ejecucion', 'suspendida', 'terminada', 'cancelada']
 
@@ -33,6 +34,7 @@ export default function Obras({ puedeEditar }) {
   const [editandoActividadId, setEditandoActividadId] = useState(null)
 
   const [mensaje, setMensaje] = useState(null)
+  const [confirmacion, setConfirmacion] = useState(null)
 
   function cargarObras() {
     api
@@ -116,8 +118,16 @@ export default function Obras({ puedeEditar }) {
     }
   }
 
-  async function eliminarObra(obra) {
-    if (!window.confirm(`¿Eliminar la obra "${obra.nombre}"?`)) return
+  function eliminarObra(obra) {
+    setConfirmacion({
+      titulo: 'Eliminar obra',
+      mensaje: `¿Eliminar la obra "${obra.nombre}"? Esta acción no se puede deshacer.`,
+      onConfirmar: () => ejecutarEliminarObra(obra),
+    })
+  }
+
+  async function ejecutarEliminarObra(obra) {
+    setConfirmacion(null)
     try {
       await api.eliminarObra(obra.id)
       if (obraSeleccionada?.id === obra.id) setObraSeleccionada(null)
@@ -169,8 +179,16 @@ export default function Obras({ puedeEditar }) {
     setFormActividad(ACTIVIDAD_VACIA)
   }
 
-  async function eliminarActividad(actividad) {
-    if (!window.confirm(`¿Eliminar la actividad "${actividad.nombre}"?`)) return
+  function eliminarActividad(actividad) {
+    setConfirmacion({
+      titulo: 'Eliminar actividad',
+      mensaje: `¿Eliminar la actividad "${actividad.nombre}"? Esta acción no se puede deshacer.`,
+      onConfirmar: () => ejecutarEliminarActividad(actividad),
+    })
+  }
+
+  async function ejecutarEliminarActividad(actividad) {
+    setConfirmacion(null)
     try {
       await api.eliminarActividad(actividad.id)
       cargarActividades(obraSeleccionada.id)
@@ -182,7 +200,7 @@ export default function Obras({ puedeEditar }) {
   const sumaPesos = actividades.reduce((acc, a) => acc + (a.peso_porcentual || 0) * 100, 0)
 
   return (
-    <div className="max-w-5xl space-y-8">
+    <div className="space-y-8">
       <div>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Obras</h2>
         {mensaje && <p className="text-sm text-gray-600 mb-3">{mensaje}</p>}
@@ -394,6 +412,14 @@ export default function Obras({ puedeEditar }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        abierto={!!confirmacion}
+        titulo={confirmacion?.titulo}
+        mensaje={confirmacion?.mensaje}
+        onConfirmar={confirmacion?.onConfirmar}
+        onCancelar={() => setConfirmacion(null)}
+      />
     </div>
   )
 }
