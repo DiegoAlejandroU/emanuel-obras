@@ -1,14 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Obras from './pages/Obras.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Bitacora from './pages/Bitacora.jsx'
 import Usuarios from './pages/Usuarios.jsx'
 import Login from './pages/Login.jsx'
+import Layout from './components/Layout.jsx'
+import { api } from './lib/api.js'
 import { borrarToken, usuarioActualDesdeToken } from './lib/auth.js'
 
 export default function App() {
   const [usuario, setUsuario] = useState(usuarioActualDesdeToken())
   const [tab, setTab] = useState('obras')
+
+  // "Obra activa": estado compartido por el sidebar y por las pantallas de
+  // Bitácora/Dashboard, que antes mantenían cada una su propio selector de
+  // obra por separado. Vive aquí para que el selector del sidebar y ambas
+  // pantallas queden sincronizados.
+  const [obras, setObras] = useState([])
+  const [obraActivaId, setObraActivaId] = useState(null)
+
+  useEffect(() => {
+    if (!usuario) return
+    api.listarObras().then(setObras).catch(() => {})
+  }, [usuario])
 
   if (!usuario) {
     return <Login onIngreso={() => setUsuario(usuarioActualDesdeToken())} />
@@ -17,8 +31,8 @@ export default function App() {
   const puedeEditarObras = ['administrador', 'gerencia'].includes(usuario.rol)
 
   const TABS = [
-    { key: 'obras', label: 'Obras' },
-    { key: 'bitacora', label: 'Bitácora de obra' },
+    { key: 'obras', label: 'Obras', count: obras.length },
+    { key: 'bitacora', label: 'Bitácora' },
     { key: 'dashboard', label: 'Dashboard' },
     ...(usuario.rol === 'administrador' ? [{ key: 'usuarios', label: 'Usuarios' }] : []),
   ]
@@ -28,40 +42,33 @@ export default function App() {
     setUsuario(null)
   }
 
+  const obraActiva = obras.find((o) => String(o.id) === String(obraActivaId))
+  const crumbLeaf =
+    tab === 'obras'
+      ? 'Todas las obras'
+      : tab === 'usuarios'
+        ? 'Usuarios'
+        : obraActiva
+          ? obraActiva.nombre
+          : 'Selecciona una obra'
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-obra-700 text-white px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Emanuel Ingeniería y Construcciones — Ejecución de Obras</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="opacity-80">Rol: {usuario.rol}</span>
-          <button onClick={cerrarSesion} className="underline hover:opacity-80">
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
-
-      <nav className="flex gap-2 px-6 pt-4">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-t-md text-sm font-medium ${
-              tab === t.key
-                ? 'bg-white text-obra-700 border border-b-0 border-gray-200'
-                : 'text-gray-500 hover:text-obra-700'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="bg-white border-t border-gray-200 p-6">
-        {tab === 'obras' && <Obras puedeEditar={puedeEditarObras} />}
-        {tab === 'bitacora' && <Bitacora />}
-        {tab === 'dashboard' && <Dashboard />}
-        {tab === 'usuarios' && usuario.rol === 'administrador' && <Usuarios />}
-      </main>
-    </div>
+    <Layout
+      usuario={usuario}
+      tabs={TABS}
+      tabActivo={tab}
+      onTabChange={setTab}
+      obras={obras}
+      obraActivaId={obraActivaId}
+      onObraActivaChange={setObraActivaId}
+      mostrarSelectorObra={tab === 'bitacora' || tab === 'dashboard'}
+      crumbLeaf={crumbLeaf}
+      onCerrarSesion={cerrarSesion}
+    >
+      {tab === 'obras' && <Obras puedeEditar={puedeEditarObras} onObrasCambian={setObras} />}
+      {tab === 'bitacora' && <Bitacora obras={obras} obraId={obraActivaId} onObraIdChange={setObraActivaId} />}
+      {tab === 'dashboard' && <Dashboard obras={obras} obraId={obraActivaId} onObraIdChange={setObraActivaId} />}
+      {tab === 'usuarios' && usuario.rol === 'administrador' && <Usuarios />}
+    </Layout>
   )
 }

@@ -1,32 +1,26 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import { usuarioActualDesdeToken } from '../lib/auth.js'
+import { Badge, ESTADO_BITACORA } from '../lib/estilos.jsx'
 
 const FORM_VACIO = { clima: '', personal_en_obra: 0, resumen: '' }
 
-const ESTADO_ETIQUETA = {
-  borrador: 'Borrador',
-  enviada: 'Enviada',
-  aprobada: 'Aprobada',
-  rechazada: 'Rechazada',
-}
-
-const ESTADO_COLOR = {
-  borrador: 'bg-gray-100 text-gray-700',
-  enviada: 'bg-amber-100 text-amber-700',
-  aprobada: 'bg-green-100 text-green-700',
-  rechazada: 'bg-red-100 text-red-700',
-}
-
-export default function Bitacora() {
+/**
+ * `obras`, `obraId` y `onObraIdChange` son opcionales: si no se reciben, el
+ * componente vuelve a cargar la lista de obras y maneja su propia selección
+ * (mismo comportamiento que antes del rediseño, cuando esta página no vivía
+ * dentro del Layout con selector de "obra activa" en el sidebar).
+ */
+export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraIdChange }) {
   const usuario = usuarioActualDesdeToken()
   const puedeCrear = usuario && ['administrador', 'residente_obra'].includes(usuario.rol)
   const puedeAprobar = usuario && usuario.rol === 'interventor'
 
-  const [obras, setObras] = useState([])
-  const [obraId, setObraId] = useState(null)
+  const [obrasPropias, setObrasPropias] = useState([])
+  const [obraIdPropio, setObraIdPropio] = useState(null)
   const [actividades, setActividades] = useState([])
   const [registros, setRegistros] = useState([])
+  const [registroActivo, setRegistroActivo] = useState(null)
 
   const [form, setForm] = useState(FORM_VACIO)
   const [avancesPorActividad, setAvancesPorActividad] = useState({})
@@ -37,8 +31,15 @@ export default function Bitacora() {
   const [mensaje, setMensaje] = useState(null)
   const [guardando, setGuardando] = useState(false)
 
+  const obras = obrasProp ?? obrasPropias
+  const obraId = obraIdProp !== undefined ? obraIdProp : obraIdPropio
+  const setObraId = onObraIdChange ?? setObraIdPropio
+  const obraActual = obras.find((o) => String(o.id) === String(obraId))
+
   useEffect(() => {
-    api.listarObras().then(setObras).catch((err) => setMensaje(err.message))
+    if (obrasProp) return
+    api.listarObras().then(setObrasPropias).catch((err) => setMensaje(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function cargarObra(id) {
@@ -48,7 +49,10 @@ export default function Bitacora() {
       return
     }
     api.listarActividades(id).then(setActividades).catch((err) => setMensaje(err.message))
-    api.listarBitacoras(id).then(setRegistros).catch((err) => setMensaje(err.message))
+    api.listarBitacoras(id).then((data) => {
+      setRegistros(data)
+      setRegistroActivo((actual) => (data.find((r) => r.id === actual) ? actual : data[0]?.id ?? null))
+    }).catch((err) => setMensaje(err.message))
   }
 
   useEffect(() => {
@@ -162,232 +166,339 @@ export default function Bitacora() {
     setter((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const registroSeleccionado = registros.find((r) => r.id === registroActivo)
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Bitácora diaria de obra</h2>
-
-      <select
-        className="border border-gray-300 rounded-md px-3 py-2 mb-6"
-        value={obraId ?? ''}
-        onChange={(e) => setObraId(e.target.value || null)}
-      >
-        <option value="">Selecciona una obra…</option>
-        {obras.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.nombre}
-          </option>
-        ))}
-      </select>
-
-      {mensaje && <p className="text-sm text-gray-600 mb-4">{mensaje}</p>}
-
-      {obraId && puedeCrear && (
-        <form onSubmit={guardarRegistro} className="space-y-4 mb-8 border border-gray-200 rounded-md p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              className="border border-gray-300 rounded-md px-3 py-2"
-              placeholder="Clima"
-              value={form.clima}
-              onChange={(e) => setForm({ ...form, clima: e.target.value })}
-            />
-            <input
-              type="number"
-              min="0"
-              className="border border-gray-300 rounded-md px-3 py-2"
-              placeholder="Personal en obra (total)"
-              value={form.personal_en_obra}
-              onChange={(e) => setForm({ ...form, personal_en_obra: Number(e.target.value) })}
-            />
-          </div>
-          <textarea
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            placeholder="Resumen de lo ejecutado hoy"
-            value={form.resumen}
-            onChange={(e) => setForm({ ...form, resumen: e.target.value })}
-          />
-
-          {actividades.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600 mb-2">Avance por actividad</h3>
-              <div className="space-y-2">
-                {actividades.map((a) => (
-                  <div key={a.id} className="border border-gray-200 rounded-md p-3 grid grid-cols-4 gap-2 items-center">
-                    <span className="text-sm text-gray-700">{a.nombre}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      placeholder="% avanzado hoy"
-                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                      value={avancesPorActividad[a.id]?.avance_del_dia ?? ''}
-                      onChange={(e) => actualizarAvance(a.id, 'avance_del_dia', e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Observaciones"
-                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                      value={avancesPorActividad[a.id]?.observaciones ?? ''}
-                      onChange={(e) => actualizarAvance(a.id, 'observaciones', e.target.value)}
-                    />
-                    <div>
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        multiple
-                        className="text-xs w-full"
-                        onChange={(e) => actualizarAvance(a.id, 'archivos', Array.from(e.target.files))}
-                      />
-                      {avancesPorActividad[a.id]?.archivos?.length > 0 && (
-                        <span className="text-xs text-gray-500">
-                          {avancesPorActividad[a.id].archivos.length} foto(s) seleccionada(s)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <ListaEditable
-            titulo="Personal en obra por cargo"
-            filas={personal}
-            columnas={[
-              { campo: 'cargo', placeholder: 'Cargo (ej: oficial)', tipo: 'text' },
-              { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
-              { campo: 'horas_trabajadas', placeholder: 'Horas trabajadas', tipo: 'number' },
-            ]}
-            plantilla={{ cargo: '', cantidad: 1, horas_trabajadas: 8 }}
-            onAgregar={() => agregarFila(setPersonal, { cargo: '', cantidad: 1, horas_trabajadas: 8 })}
-            onActualizar={(i, c, v) => actualizarFila(setPersonal, i, c, v)}
-            onQuitar={(i) => quitarFila(setPersonal, i)}
-          />
-
-          <ListaEditable
-            titulo="Materiales usados"
-            filas={materiales}
-            columnas={[
-              { campo: 'material', placeholder: 'Material', tipo: 'text' },
-              { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
-              { campo: 'unidad', placeholder: 'Unidad (ej: bultos)', tipo: 'text' },
-            ]}
-            onAgregar={() => agregarFila(setMateriales, { material: '', cantidad: 0, unidad: '' })}
-            onActualizar={(i, c, v) => actualizarFila(setMateriales, i, c, v)}
-            onQuitar={(i) => quitarFila(setMateriales, i)}
-          />
-
-          <ListaEditable
-            titulo="Incidentes"
-            filas={incidentes}
-            columnas={[
-              {
-                campo: 'tipo',
-                placeholder: 'Tipo',
-                tipo: 'select',
-                opciones: ['seguridad', 'clima', 'tecnico', 'logistico', 'otro'],
-              },
-              { campo: 'descripcion', placeholder: 'Descripción', tipo: 'text' },
-              { campo: 'gravedad', placeholder: 'Gravedad', tipo: 'select', opciones: ['baja', 'media', 'alta'] },
-              { campo: 'acciones_tomadas', placeholder: 'Acciones tomadas', tipo: 'text' },
-            ]}
-            onAgregar={() =>
-              agregarFila(setIncidentes, { tipo: 'otro', descripcion: '', gravedad: 'baja', acciones_tomadas: '' })
-            }
-            onActualizar={(i, c, v) => actualizarFila(setIncidentes, i, c, v)}
-            onQuitar={(i) => quitarFila(setIncidentes, i)}
-          />
-
-          <button
-            type="submit"
-            disabled={guardando}
-            className="bg-obra-600 text-white px-4 py-2 rounded-md hover:bg-obra-700 disabled:opacity-50"
+    <div className="flex-1 min-h-0 flex flex-col">
+      {!obrasProp && (
+        <div className="px-7 pt-6">
+          <select
+            className="border border-line-input rounded-[7px] px-3 py-2 mb-2 bg-white outline-none text-sm"
+            value={obraId ?? ''}
+            onChange={(e) => setObraId(e.target.value || null)}
           >
-            {guardando ? 'Guardando…' : 'Guardar registro (borrador)'}
-          </button>
-        </form>
+            <option value="">Selecciona una obra…</option>
+            {obras.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
 
-      <div className="space-y-3">
-        {registros.map((r) => (
-          <div key={r.id} className="border border-gray-200 rounded-md p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                {r.fecha} — {r.personal_en_obra} personas — {r.clima}
-              </p>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ESTADO_COLOR[r.estado]}`}>
-                {ESTADO_ETIQUETA[r.estado]}
-              </span>
+      {mensaje && <p className="text-sm text-muted px-7 m-0 mb-2">{mensaje}</p>}
+
+      {!obraId ? (
+        <div className="p-7">
+          <div className="bg-white border border-dashed border-line-input rounded-[10px] p-10 text-center text-muted-3">
+            Selecciona una obra {obrasProp ? 'en el sidebar' : 'arriba'} para ver su bitácora.
+          </div>
+        </div>
+      ) : (
+        <div className="grid flex-1 min-h-0" style={{ gridTemplateColumns: 'clamp(220px,22vw,290px) minmax(0,1fr)' }}>
+          <div className="border-r border-line bg-[#fbfbf9] flex flex-col overflow-auto">
+            <div className="px-4 pt-[18px] pb-3 flex flex-col gap-0.5">
+              <span className="font-semibold text-[15px]">Bitácora diaria</span>
+              <span className="text-muted-2 text-[12.5px] truncate">{obraActual?.nombre}</span>
             </div>
-            <p className="text-gray-800">{r.resumen}</p>
-            {r.motivo_rechazo && <p className="text-red-600 text-sm mt-1">Motivo del rechazo: {r.motivo_rechazo}</p>}
-
-            {r.registros_avance?.length > 0 && (
-              <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
-                {r.registros_avance.map((av) => (
-                  <li key={av.id}>
-                    {nombreActividad(av.actividad_id)}: +{av.avance_del_dia}%
-                    {av.observaciones ? ` — ${av.observaciones}` : ''}
-                    {av.fotos?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-1 mb-2 ml-4">
-                        {av.fotos.map((foto) => (
-                          <FotoAvanceThumbnail
-                            key={foto.id}
-                            foto={foto}
-                            onEliminar={
-                              puedeCrear && ['borrador', 'rechazada'].includes(r.estado)
-                                ? () => eliminarFotoDeAvance(foto.id)
-                                : null
-                            }
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {r.incidentes?.length > 0 && (
-              <ul className="mt-2 text-sm text-red-600 list-disc list-inside">
-                {r.incidentes.map((inc) => (
-                  <li key={inc.id}>
-                    [{inc.tipo}/{inc.gravedad}] {inc.descripcion}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-3 flex gap-3">
-              {r.estado === 'borrador' && puedeCrear && (
-                <button className="text-sm text-obra-700 hover:underline" onClick={() => cambiarEstado(r, 'enviada')}>
-                  Enviar para revisión
+            <div className="flex flex-col px-2 pb-4 gap-0.5">
+              {registros.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setRegistroActivo(r.id)}
+                  className={`flex flex-col gap-1.5 px-2.5 py-2.5 rounded-[7px] border cursor-pointer text-left hover:bg-[#f1f1ed] ${
+                    r.id === registroActivo ? 'bg-white border-line-strong' : 'bg-transparent border-transparent'
+                  }`}
+                >
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="font-medium whitespace-nowrap text-sm">{r.fecha}</span>
+                    <Badge estado={ESTADO_BITACORA[r.estado]} />
+                  </div>
+                  <span className="text-xs text-muted-3 font-mono">
+                    {r.personal_en_obra} personas · {r.clima || 'sin clima'}
+                  </span>
                 </button>
-              )}
-              {r.estado === 'enviada' && puedeAprobar && (
-                <>
-                  <button
-                    className="text-sm text-green-700 hover:underline"
-                    onClick={() => cambiarEstado(r, 'aprobada')}
-                  >
-                    Aprobar
-                  </button>
-                  <button className="text-sm text-red-600 hover:underline" onClick={() => cambiarEstado(r, 'rechazada')}>
-                    Rechazar
-                  </button>
-                </>
-              )}
-              {r.estado === 'rechazada' && puedeCrear && (
-                <button className="text-sm text-obra-700 hover:underline" onClick={() => cambiarEstado(r, 'borrador')}>
-                  Reabrir para corregir
-                </button>
-              )}
+              ))}
+              {registros.length === 0 && <p className="text-xs text-muted-3 px-2.5 py-2">Sin bitácoras todavía.</p>}
             </div>
           </div>
-        ))}
-        {obraId && registros.length === 0 && (
-          <p className="text-sm text-gray-500">Esta obra todavía no tiene bitácoras registradas.</p>
-        )}
-      </div>
+
+          <div className="min-w-0 flex flex-col overflow-auto">
+            {puedeCrear && (
+              <details className="border-b border-line bg-white open:bg-[#fbfbf9]">
+                <summary className="px-7 py-3 cursor-pointer font-medium text-sm text-brand select-none">
+                  + Registrar nueva bitácora
+                </summary>
+                <form onSubmit={guardarRegistro} className="px-7 pb-6 flex flex-col gap-4 max-w-[1180px]">
+                  <section className="bg-white border border-line rounded-[10px]">
+                    <div className="px-[18px] py-3.5 border-b border-line-soft flex items-baseline gap-2.5">
+                      <span className="font-mono text-[11.5px] text-muted-3">01</span>
+                      <span className="font-semibold text-sm">Condiciones de la jornada</span>
+                    </div>
+                    <div className="p-[18px] grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12.5px] font-medium text-muted-4">Clima</span>
+                        <input
+                          className="border border-line-input rounded-[7px] px-2.5 h-9 outline-none focus:border-brand text-sm"
+                          placeholder="Ej. Soleado, con lluvia en la tarde"
+                          value={form.clima}
+                          onChange={(e) => setForm({ ...form, clima: e.target.value })}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12.5px] font-medium text-muted-4">Personal en obra (total)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          className="border border-line-input rounded-[7px] px-2.5 h-9 outline-none focus:border-brand font-mono text-sm"
+                          value={form.personal_en_obra}
+                          onChange={(e) => setForm({ ...form, personal_en_obra: Number(e.target.value) })}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5 sm:col-span-2">
+                        <span className="text-[12.5px] font-medium text-muted-4">Resumen de lo ejecutado hoy</span>
+                        <textarea
+                          rows={2}
+                          className="border border-line-input rounded-[7px] px-2.5 py-2 outline-none focus:border-brand resize-y text-sm"
+                          value={form.resumen}
+                          onChange={(e) => setForm({ ...form, resumen: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  {actividades.length > 0 && (
+                    <section className="bg-white border border-line rounded-[10px]">
+                      <div className="px-[18px] py-3.5 border-b border-line-soft flex items-baseline gap-2.5">
+                        <span className="font-mono text-[11.5px] text-muted-3">02</span>
+                        <span className="font-semibold text-sm">Avance por actividad</span>
+                      </div>
+                      <div className="p-[18px] flex flex-col gap-2">
+                        {actividades.map((a) => (
+                          <div key={a.id} className="border border-line-soft rounded-[8px] p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                            <span className="text-sm text-muted-4">{a.nombre}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              placeholder="% avanzado hoy"
+                              className="border border-line-input rounded-md px-2 py-1 text-sm font-mono"
+                              value={avancesPorActividad[a.id]?.avance_del_dia ?? ''}
+                              onChange={(e) => actualizarAvance(a.id, 'avance_del_dia', e.target.value)}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Observaciones"
+                              className="border border-line-input rounded-md px-2 py-1 text-sm"
+                              value={avancesPorActividad[a.id]?.observaciones ?? ''}
+                              onChange={(e) => actualizarAvance(a.id, 'observaciones', e.target.value)}
+                            />
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                className="text-xs w-full"
+                                onChange={(e) => actualizarAvance(a.id, 'archivos', Array.from(e.target.files))}
+                              />
+                              {avancesPorActividad[a.id]?.archivos?.length > 0 && (
+                                <span className="text-xs text-muted-3">
+                                  {avancesPorActividad[a.id].archivos.length} foto(s) seleccionada(s)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,360px),1fr))' }}>
+                    <ListaEditable
+                      numero="03"
+                      titulo="Personal en obra por cargo"
+                      filas={personal}
+                      columnas={[
+                        { campo: 'cargo', placeholder: 'Cargo (ej: oficial)', tipo: 'text' },
+                        { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
+                        { campo: 'horas_trabajadas', placeholder: 'Horas trabajadas', tipo: 'number' },
+                      ]}
+                      onAgregar={() => agregarFila(setPersonal, { cargo: '', cantidad: 1, horas_trabajadas: 8 })}
+                      onActualizar={(i, c, v) => actualizarFila(setPersonal, i, c, v)}
+                      onQuitar={(i) => quitarFila(setPersonal, i)}
+                    />
+
+                    <ListaEditable
+                      numero="04"
+                      titulo="Materiales usados"
+                      filas={materiales}
+                      columnas={[
+                        { campo: 'material', placeholder: 'Material', tipo: 'text' },
+                        { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
+                        { campo: 'unidad', placeholder: 'Unidad (ej: bultos)', tipo: 'text' },
+                      ]}
+                      onAgregar={() => agregarFila(setMateriales, { material: '', cantidad: 0, unidad: '' })}
+                      onActualizar={(i, c, v) => actualizarFila(setMateriales, i, c, v)}
+                      onQuitar={(i) => quitarFila(setMateriales, i)}
+                    />
+                  </div>
+
+                  <ListaEditable
+                    numero="05"
+                    titulo="Incidentes"
+                    filas={incidentes}
+                    columnas={[
+                      { campo: 'tipo', placeholder: 'Tipo', tipo: 'select', opciones: ['seguridad', 'clima', 'tecnico', 'logistico', 'otro'] },
+                      { campo: 'descripcion', placeholder: 'Descripción', tipo: 'text' },
+                      { campo: 'gravedad', placeholder: 'Gravedad', tipo: 'select', opciones: ['baja', 'media', 'alta'] },
+                      { campo: 'acciones_tomadas', placeholder: 'Acciones tomadas', tipo: 'text' },
+                    ]}
+                    onAgregar={() => agregarFila(setIncidentes, { tipo: 'otro', descripcion: '', gravedad: 'baja', acciones_tomadas: '' })}
+                    onActualizar={(i, c, v) => actualizarFila(setIncidentes, i, c, v)}
+                    onQuitar={(i) => quitarFila(setIncidentes, i)}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={guardando}
+                    className="self-start h-9 px-4 rounded-[7px] border border-brand-dark bg-brand text-white font-medium cursor-pointer hover:bg-brand-dark disabled:opacity-50 text-sm"
+                  >
+                    {guardando ? 'Guardando…' : 'Guardar registro (borrador)'}
+                  </button>
+                </form>
+              </details>
+            )}
+
+            {registroSeleccionado ? (
+              <div className="p-7 flex flex-col gap-4 max-w-[1180px]">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h1 className="m-0 text-xl font-semibold tracking-tight">Bitácora · {registroSeleccionado.fecha}</h1>
+                    <Badge estado={ESTADO_BITACORA[registroSeleccionado.estado]} />
+                  </div>
+                  <div className="flex gap-2">
+                    {registroSeleccionado.estado === 'borrador' && puedeCrear && (
+                      <button
+                        className="h-[34px] px-3.5 rounded-[7px] border border-brand-dark bg-brand text-white font-medium cursor-pointer hover:bg-brand-dark text-sm"
+                        onClick={() => cambiarEstado(registroSeleccionado, 'enviada')}
+                      >
+                        Enviar para revisión
+                      </button>
+                    )}
+                    {registroSeleccionado.estado === 'enviada' && puedeAprobar && (
+                      <>
+                        <button
+                          className="h-[34px] px-3.5 rounded-[7px] border border-[#e6b3ad] bg-white text-status-rejected-fg font-medium cursor-pointer hover:bg-status-rejected-bg text-sm"
+                          onClick={() => cambiarEstado(registroSeleccionado, 'rechazada')}
+                        >
+                          ✕ Rechazar
+                        </button>
+                        <button
+                          className="h-[34px] px-4 rounded-[7px] border border-brand-dark bg-brand text-white font-medium cursor-pointer hover:bg-brand-dark text-sm"
+                          onClick={() => cambiarEstado(registroSeleccionado, 'aprobada')}
+                        >
+                          ✓ Aprobar
+                        </button>
+                      </>
+                    )}
+                    {registroSeleccionado.estado === 'rechazada' && puedeCrear && (
+                      <button
+                        className="h-[34px] px-3.5 rounded-[7px] border border-line-input bg-white font-medium cursor-pointer hover:bg-[#f6f5f1] text-sm"
+                        onClick={() => cambiarEstado(registroSeleccionado, 'borrador')}
+                      >
+                        Reabrir para corregir
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <span className="text-muted text-sm -mt-2">
+                  {registroSeleccionado.personal_en_obra} personas · {registroSeleccionado.clima || 'sin clima registrado'}
+                </span>
+
+                {registroSeleccionado.motivo_rechazo && (
+                  <div className="bg-status-rejected-bg border border-[#f0c9c4] rounded-[10px] px-[18px] py-3.5">
+                    <span className="font-semibold text-status-rejected-fg text-sm">Motivo del rechazo</span>
+                    <p className="m-0 text-[#6e2a23] text-sm leading-relaxed mt-1">{registroSeleccionado.motivo_rechazo}</p>
+                  </div>
+                )}
+
+                <section className="bg-white border border-line rounded-[10px]">
+                  <div className="px-[18px] py-3.5 border-b border-line-soft">
+                    <span className="font-semibold text-sm">Resumen de lo ejecutado</span>
+                  </div>
+                  <p className="m-0 px-[18px] py-3.5 text-ink leading-relaxed text-sm">
+                    {registroSeleccionado.resumen || 'Sin resumen.'}
+                  </p>
+                </section>
+
+                {registroSeleccionado.registros_avance?.length > 0 && (
+                  <section className="bg-white border border-line rounded-[10px]">
+                    <div className="px-[18px] py-3.5 border-b border-line-soft">
+                      <span className="font-semibold text-sm">Avance por actividad</span>
+                    </div>
+                    <div className="px-[18px]">
+                      {registroSeleccionado.registros_avance.map((av, i) => (
+                        <div key={av.id} className={`py-3 flex flex-col gap-2 ${i > 0 ? 'border-t border-line-softer' : ''}`}>
+                          <span className="text-sm">
+                            <span className="font-medium">{nombreActividad(av.actividad_id)}</span>{' '}
+                            <span className="font-mono text-brand-text">+{av.avance_del_dia}%</span>
+                            {av.observaciones ? <span className="text-muted-2"> — {av.observaciones}</span> : null}
+                          </span>
+                          {av.fotos?.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {av.fotos.map((foto) => (
+                                <FotoAvanceThumbnail
+                                  key={foto.id}
+                                  foto={foto}
+                                  onEliminar={
+                                    puedeCrear && ['borrador', 'rechazada'].includes(registroSeleccionado.estado)
+                                      ? () => eliminarFotoDeAvance(foto.id)
+                                      : null
+                                  }
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {registroSeleccionado.incidentes?.length > 0 && (
+                  <section className="bg-white border border-line rounded-[10px]">
+                    <div className="px-[18px] py-3.5 border-b border-line-soft">
+                      <span className="font-semibold text-sm">Incidentes y novedades</span>
+                    </div>
+                    <div className="p-[18px] flex flex-col gap-2">
+                      {registroSeleccionado.incidentes.map((inc) => (
+                        <div key={inc.id} className="flex gap-2.5 items-start px-3 py-2.5 rounded-[8px] bg-[#fafaf7] border border-line-soft">
+                          <span className="flex-none h-5 px-1.5 rounded text-[11.5px] font-medium inline-flex items-center bg-status-sent-bg text-status-sent-fg capitalize">
+                            {inc.gravedad}
+                          </span>
+                          <span className="leading-relaxed text-muted-4 text-sm">
+                            [{inc.tipo}] {inc.descripcion}
+                            {inc.acciones_tomadas ? ` — ${inc.acciones_tomadas}` : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            ) : (
+              <div className="p-7 text-muted-3 text-sm">
+                {registros.length === 0
+                  ? 'Esta obra todavía no tiene bitácoras registradas.'
+                  : 'Selecciona una bitácora de la lista para ver el detalle.'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -419,21 +530,17 @@ function FotoAvanceThumbnail({ foto, onEliminar }) {
     <div className="relative w-16 h-16">
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" title={foto.nombre_original}>
-          <img
-            src={url}
-            alt={foto.nombre_original}
-            className="w-16 h-16 object-cover rounded-md border border-gray-200"
-          />
+          <img src={url} alt={foto.nombre_original} className="w-16 h-16 object-cover rounded-md border border-line" />
         </a>
       ) : (
-        <div className="w-16 h-16 bg-gray-100 rounded-md animate-pulse" />
+        <div className="w-16 h-16 bg-line-soft rounded-md animate-pulse" />
       )}
       {onEliminar && (
         <button
           type="button"
           onClick={onEliminar}
           title="Eliminar foto"
-          className="absolute -top-1.5 -right-1.5 w-4 h-4 leading-none text-xs bg-white text-red-600 border border-red-200 rounded-full"
+          className="absolute -top-1.5 -right-1.5 w-4 h-4 leading-none text-xs bg-white text-status-rejected-fg border border-[#e6b3ad] rounded-full"
         >
           ×
         </button>
@@ -442,23 +549,26 @@ function FotoAvanceThumbnail({ foto, onEliminar }) {
   )
 }
 
-function ListaEditable({ titulo, filas, columnas, onAgregar, onActualizar, onQuitar }) {
+function ListaEditable({ numero, titulo, filas, columnas, onAgregar, onActualizar, onQuitar }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-600">{titulo}</h3>
-        <button type="button" className="text-sm text-obra-700 hover:underline" onClick={onAgregar}>
+    <section className="bg-white border border-line rounded-[10px]">
+      <div className="px-[18px] py-3.5 border-b border-line-soft flex items-center justify-between gap-2.5">
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-mono text-[11.5px] text-muted-3">{numero}</span>
+          <span className="font-semibold text-sm">{titulo}</span>
+        </div>
+        <button type="button" className="text-sm text-brand hover:underline" onClick={onAgregar}>
           + Agregar
         </button>
       </div>
-      <div className="space-y-2">
+      <div className="p-[18px] flex flex-col gap-2">
         {filas.map((fila, i) => (
           <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, 1fr) auto` }}>
             {columnas.map((col) =>
               col.tipo === 'select' ? (
                 <select
                   key={col.campo}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  className="border border-line-input rounded-md px-2 py-1 text-sm bg-white"
                   value={fila[col.campo]}
                   onChange={(e) => onActualizar(i, col.campo, e.target.value)}
                 >
@@ -473,19 +583,19 @@ function ListaEditable({ titulo, filas, columnas, onAgregar, onActualizar, onQui
                   key={col.campo}
                   type={col.tipo}
                   placeholder={col.placeholder}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  className="border border-line-input rounded-md px-2 py-1 text-sm"
                   value={fila[col.campo]}
                   onChange={(e) => onActualizar(i, col.campo, col.tipo === 'number' ? Number(e.target.value) : e.target.value)}
                 />
               )
             )}
-            <button type="button" className="text-red-600 text-sm" onClick={() => onQuitar(i)}>
+            <button type="button" className="text-status-rejected-fg text-sm" onClick={() => onQuitar(i)}>
               Quitar
             </button>
           </div>
         ))}
-        {filas.length === 0 && <p className="text-xs text-gray-400">Nada agregado todavía.</p>}
+        {filas.length === 0 && <p className="text-xs text-muted-3">Nada agregado todavía.</p>}
       </div>
-    </div>
+    </section>
   )
 }
