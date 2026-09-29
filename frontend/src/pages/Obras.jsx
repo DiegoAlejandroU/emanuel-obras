@@ -435,23 +435,27 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
                   onChange={(e) => setFormActividad({ ...formActividad, nombre: e.target.value })}
                   required
                 />
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none font-mono text-sm"
-                  placeholder="% del total"
-                  value={formActividad.pesoPorcentualUi}
-                  onChange={(e) => setFormActividad({ ...formActividad, pesoPorcentualUi: e.target.value })}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none font-mono text-sm"
-                  placeholder="Costo presupuestado"
-                  value={formActividad.costo_presupuestado}
-                  onChange={(e) => setFormActividad({ ...formActividad, costo_presupuestado: e.target.value })}
-                />
+                <label className="text-xs text-muted-3 flex flex-col gap-1">
+                  Peso %
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none font-mono text-sm"
+                    value={formActividad.pesoPorcentualUi}
+                    onChange={(e) => setFormActividad({ ...formActividad, pesoPorcentualUi: e.target.value })}
+                  />
+                </label>
+                <label className="text-xs text-muted-3 flex flex-col gap-1">
+                  Costo presupuestado
+                  <input
+                    type="number"
+                    min="0"
+                    className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none font-mono text-sm"
+                    value={formActividad.costo_presupuestado}
+                    onChange={(e) => setFormActividad({ ...formActividad, costo_presupuestado: e.target.value })}
+                  />
+                </label>
                 <label className="text-xs text-muted-3 flex flex-col gap-1">
                   Inicio programado
                   <input
