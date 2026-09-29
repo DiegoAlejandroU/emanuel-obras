@@ -428,13 +428,16 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
           <div className="p-[18px] flex flex-col gap-4">
             {puedeEditar && (
               <form onSubmit={guardarActividad} className="grid grid-cols-2 lg:grid-cols-4 gap-3 border border-line-soft rounded-[8px] p-3.5 bg-[#fbfbf9]">
-                <input
-                  className="border border-line-input rounded-[7px] px-2.5 py-1.5 col-span-2 outline-none focus:border-brand text-sm"
-                  placeholder="Nombre de la actividad"
-                  value={formActividad.nombre}
-                  onChange={(e) => setFormActividad({ ...formActividad, nombre: e.target.value })}
-                  required
-                />
+                <label className="text-xs text-muted-3 flex flex-col gap-1 col-span-2">
+                  Nombre de la actividad
+                  <input
+                    className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none focus:border-brand text-sm"
+                    placeholder="Ej: Excavación de cimientos"
+                    value={formActividad.nombre}
+                    onChange={(e) => setFormActividad({ ...formActividad, nombre: e.target.value })}
+                    required
+                  />
+                </label>
                 <label className="text-xs text-muted-3 flex flex-col gap-1">
                   Peso %
                   <input

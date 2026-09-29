@@ -275,6 +275,14 @@ export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraI
                         <span className="font-semibold text-sm">Avance por actividad</span>
                       </div>
                       <div className="p-[18px] flex flex-col gap-2">
+                        {actividades.length > 0 && (
+                          <div className="hidden sm:grid grid-cols-4 gap-2 px-3 text-[11.5px] font-medium text-muted-3">
+                            <span>Actividad</span>
+                            <span>Avance % hoy</span>
+                            <span>Observaciones</span>
+                            <span>Fotos</span>
+                          </div>
+                        )}
                         {actividades.map((a) => (
                           <div key={a.id} className="border border-line-soft rounded-[8px] p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
                             <span className="text-sm text-muted-4">{a.nombre}</span>
@@ -321,9 +329,9 @@ export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraI
                       titulo="Personal en obra por cargo"
                       filas={personal}
                       columnas={[
-                        { campo: 'cargo', placeholder: 'Cargo (ej: oficial)', tipo: 'text' },
-                        { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
-                        { campo: 'horas_trabajadas', placeholder: 'Horas trabajadas', tipo: 'number' },
+                        { campo: 'cargo', label: 'Cargo', placeholder: 'Ej: oficial', tipo: 'text' },
+                        { campo: 'cantidad', label: 'Cantidad', placeholder: 'Cantidad', tipo: 'number' },
+                        { campo: 'horas_trabajadas', label: 'Horas trabajadas', placeholder: 'Horas', tipo: 'number' },
                       ]}
                       onAgregar={() => agregarFila(setPersonal, { cargo: '', cantidad: 1, horas_trabajadas: 8 })}
                       onActualizar={(i, c, v) => actualizarFila(setPersonal, i, c, v)}
@@ -335,9 +343,9 @@ export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraI
                       titulo="Materiales usados"
                       filas={materiales}
                       columnas={[
-                        { campo: 'material', placeholder: 'Material', tipo: 'text' },
-                        { campo: 'cantidad', placeholder: 'Cantidad', tipo: 'number' },
-                        { campo: 'unidad', placeholder: 'Unidad (ej: bultos)', tipo: 'text' },
+                        { campo: 'material', label: 'Material', placeholder: 'Material', tipo: 'text' },
+                        { campo: 'cantidad', label: 'Cantidad', placeholder: 'Cantidad', tipo: 'number' },
+                        { campo: 'unidad', label: 'Unidad', placeholder: 'Ej: bultos', tipo: 'text' },
                       ]}
                       onAgregar={() => agregarFila(setMateriales, { material: '', cantidad: 0, unidad: '' })}
                       onActualizar={(i, c, v) => actualizarFila(setMateriales, i, c, v)}
@@ -350,10 +358,10 @@ export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraI
                     titulo="Incidentes"
                     filas={incidentes}
                     columnas={[
-                      { campo: 'tipo', placeholder: 'Tipo', tipo: 'select', opciones: ['seguridad', 'clima', 'tecnico', 'logistico', 'otro'] },
-                      { campo: 'descripcion', placeholder: 'Descripción', tipo: 'text' },
-                      { campo: 'gravedad', placeholder: 'Gravedad', tipo: 'select', opciones: ['baja', 'media', 'alta'] },
-                      { campo: 'acciones_tomadas', placeholder: 'Acciones tomadas', tipo: 'text' },
+                      { campo: 'tipo', label: 'Tipo', tipo: 'select', opciones: ['seguridad', 'clima', 'tecnico', 'logistico', 'otro'] },
+                      { campo: 'descripcion', label: 'Descripción', placeholder: 'Descripción', tipo: 'text' },
+                      { campo: 'gravedad', label: 'Gravedad', tipo: 'select', opciones: ['baja', 'media', 'alta'] },
+                      { campo: 'acciones_tomadas', label: 'Acciones tomadas', placeholder: 'Acciones tomadas', tipo: 'text' },
                     ]}
                     onAgregar={() => agregarFila(setIncidentes, { tipo: 'otro', descripcion: '', gravedad: 'baja', acciones_tomadas: '' })}
                     onActualizar={(i, c, v) => actualizarFila(setIncidentes, i, c, v)}
@@ -562,6 +570,16 @@ function ListaEditable({ numero, titulo, filas, columnas, onAgregar, onActualiza
         </button>
       </div>
       <div className="p-[18px] flex flex-col gap-2">
+        {filas.length > 0 && (
+          <div className="grid gap-2 px-0.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, 1fr) auto` }}>
+            {columnas.map((col) => (
+              <span key={col.campo} className="text-[11.5px] font-medium text-muted-3">
+                {col.label ?? col.placeholder}
+              </span>
+            ))}
+            <span />
+          </div>
+        )}
         {filas.map((fila, i) => (
           <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, 1fr) auto` }}>
             {columnas.map((col) =>
