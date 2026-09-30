@@ -173,7 +173,7 @@ export default function Dashboard({ obras: obrasProp, obraId: obraIdProp, onObra
             </div>
           </div>
 
-          <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(280px,1fr)' }}>
+          <div className="grid gap-3.5 items-start grid-cols-1 lg:[grid-template-columns:minmax(0,2fr)_minmax(280px,1fr)]">
             <div className="bg-white border border-line rounded-[10px] p-[18px] flex flex-col gap-3">
               <h3 className="m-0 text-sm font-semibold text-ink">Avance en el tiempo</h3>
               <GraficaAvanceHistorico puntos={historico} />

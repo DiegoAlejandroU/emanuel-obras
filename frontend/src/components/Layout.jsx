@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { inicialesRol, ETIQUETA_ROL } from '../lib/estilos.jsx'
 
 const ICONOS = {
@@ -58,9 +59,18 @@ export default function Layout({
   onCerrarSesion,
   children,
 }) {
+  const [menuAbierto, setMenuAbierto] = useState(false)
+
   return (
-    <div className="h-screen grid grid-cols-[248px_minmax(0,1fr)] bg-paper text-ink font-sans">
-      <aside className="bg-sidebar border-r border-line-strong flex flex-col min-h-0">
+    <div className="h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] bg-paper text-ink font-sans">
+      {menuAbierto && (
+        <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setMenuAbierto(false)} />
+      )}
+      <aside
+        className={`bg-sidebar border-r border-line-strong flex flex-col min-h-0 fixed inset-y-0 left-0 z-40 w-[248px] transition-transform duration-200 md:static md:translate-x-0 ${
+          menuAbierto ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="px-4 pt-4 pb-3.5 flex items-center gap-2.5 border-b border-line-strong">
           <div className="w-[30px] h-[30px] rounded-[7px] bg-brand-darker text-brand-soft flex items-center justify-center font-bold text-xs flex-none">
             EI
@@ -96,7 +106,10 @@ export default function Layout({
             return (
               <button
                 key={t.key}
-                onClick={() => onTabChange(t.key)}
+                onClick={() => {
+                  onTabChange(t.key)
+                  setMenuAbierto(false)
+                }}
                 className={`flex items-center gap-2.5 h-8 px-2.5 rounded-md text-left cursor-pointer ${
                   activo ? 'bg-white shadow-pill font-medium' : 'text-[#4a4b45] hover:bg-[#e7e6e0] font-normal'
                 }`}
@@ -134,14 +147,25 @@ export default function Layout({
       </aside>
 
       <main className="min-w-0 overflow-auto flex flex-col">
-        <header className="h-[52px] flex-none border-b border-line bg-white flex items-center justify-between px-7 sticky top-0 z-[5]">
-          <div className="flex items-center gap-2 text-muted-2 min-w-0 text-sm">
-            <span>{CRUMB_RAIZ[tabActivo]}</span>
-            <span className="text-[#c4c3bb]">/</span>
-            <span className="text-ink font-medium whitespace-nowrap overflow-hidden text-ellipsis">{crumbLeaf}</span>
+        <header className="h-[52px] flex-none border-b border-line bg-white flex items-center justify-between px-4 md:px-7 sticky top-0 z-[5] gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => setMenuAbierto(true)}
+              aria-label="Abrir menú"
+              className="md:hidden w-8 h-8 flex-none flex items-center justify-center rounded-md text-muted-2 hover:bg-[#e7e6e0]"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <path d="M2 4h12M2 8h12M2 12h12"></path>
+              </svg>
+            </button>
+            <div className="flex items-center gap-2 text-muted-2 min-w-0 text-sm">
+              <span className="hidden sm:inline">{CRUMB_RAIZ[tabActivo]}</span>
+              <span className="hidden sm:inline text-[#c4c3bb]">/</span>
+              <span className="text-ink font-medium whitespace-nowrap overflow-hidden text-ellipsis">{crumbLeaf}</span>
+            </div>
           </div>
           <div className="flex items-center gap-3.5 text-muted-2 text-[12.5px]">
-            <span className="font-mono whitespace-nowrap capitalize">{FECHA_HOY}</span>
+            <span className="font-mono whitespace-nowrap capitalize hidden sm:inline">{FECHA_HOY}</span>
             <span className="flex items-center gap-1.5 px-2 py-[3px] border border-line-strong rounded-full text-muted-4">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
               {ETIQUETA_ROL[usuario.rol] || usuario.rol}

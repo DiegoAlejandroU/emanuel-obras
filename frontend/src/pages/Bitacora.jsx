@@ -196,8 +196,8 @@ export default function Bitacora({ obras: obrasProp, obraId: obraIdProp, onObraI
           </div>
         </div>
       ) : (
-        <div className="grid flex-1 min-h-0" style={{ gridTemplateColumns: 'clamp(220px,22vw,290px) minmax(0,1fr)' }}>
-          <div className="border-r border-line bg-[#fbfbf9] flex flex-col overflow-auto">
+        <div className="grid flex-1 min-h-0 grid-cols-1 md:[grid-template-columns:clamp(220px,22vw,290px)_minmax(0,1fr)]">
+          <div className="border-b md:border-b-0 md:border-r border-line bg-[#fbfbf9] flex flex-col overflow-auto max-h-[240px] md:max-h-none">
             <div className="px-4 pt-[18px] pb-3 flex flex-col gap-0.5">
               <span className="font-semibold text-[15px]">Bitácora diaria</span>
               <span className="text-muted-2 text-[12.5px] truncate">{obraActual?.nombre}</span>
@@ -571,7 +571,10 @@ function ListaEditable({ numero, titulo, filas, columnas, onAgregar, onActualiza
       </div>
       <div className="p-[18px] flex flex-col gap-2">
         {filas.length > 0 && (
-          <div className="grid gap-2 px-0.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, 1fr) auto` }}>
+          <div
+            className="hidden md:grid gap-2 px-0.5 md:grid-cols-[var(--cols)]"
+            style={{ '--cols': `repeat(${columnas.length}, 1fr) auto` }}
+          >
             {columnas.map((col) => (
               <span key={col.campo} className="text-[11.5px] font-medium text-muted-3">
                 {col.label ?? col.placeholder}
@@ -581,33 +584,38 @@ function ListaEditable({ numero, titulo, filas, columnas, onAgregar, onActualiza
           </div>
         )}
         {filas.map((fila, i) => (
-          <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, 1fr) auto` }}>
-            {columnas.map((col) =>
-              col.tipo === 'select' ? (
-                <select
-                  key={col.campo}
-                  className="border border-line-input rounded-md px-2 py-1 text-sm bg-white"
-                  value={fila[col.campo]}
-                  onChange={(e) => onActualizar(i, col.campo, e.target.value)}
-                >
-                  {col.opciones.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  key={col.campo}
-                  type={col.tipo}
-                  placeholder={col.placeholder}
-                  className="border border-line-input rounded-md px-2 py-1 text-sm"
-                  value={fila[col.campo]}
-                  onChange={(e) => onActualizar(i, col.campo, col.tipo === 'number' ? Number(e.target.value) : e.target.value)}
-                />
-              )
-            )}
-            <button type="button" className="text-status-rejected-fg text-sm" onClick={() => onQuitar(i)}>
+          <div
+            key={i}
+            className="grid gap-2 items-center grid-cols-1 md:grid-cols-[var(--cols)] p-2.5 md:p-0 rounded-md border border-line-soft md:border-0"
+            style={{ '--cols': `repeat(${columnas.length}, 1fr) auto` }}
+          >
+            {columnas.map((col) => (
+              <div key={col.campo} className="flex flex-col gap-1 md:contents">
+                <span className="text-[11px] font-medium text-muted-3 md:hidden">{col.label ?? col.placeholder}</span>
+                {col.tipo === 'select' ? (
+                  <select
+                    className="border border-line-input rounded-md px-2 py-1 text-sm bg-white"
+                    value={fila[col.campo]}
+                    onChange={(e) => onActualizar(i, col.campo, e.target.value)}
+                  >
+                    {col.opciones.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={col.tipo}
+                    placeholder={col.placeholder}
+                    className="border border-line-input rounded-md px-2 py-1 text-sm"
+                    value={fila[col.campo]}
+                    onChange={(e) => onActualizar(i, col.campo, col.tipo === 'number' ? Number(e.target.value) : e.target.value)}
+                  />
+                )}
+              </div>
+            ))}
+            <button type="button" className="text-status-rejected-fg text-sm text-left md:text-center" onClick={() => onQuitar(i)}>
               Quitar
             </button>
           </div>
