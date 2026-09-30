@@ -23,3 +23,12 @@ Thumbs.db
 # Producción (despliegue)
 backend/.env.prod
 deploy/.env
+
+# Configuracion local de Claude Code (no compartir)
+.claude/
+
+# Entregables/documentos de consultoria fuera del codigo del proyecto
+Claude outputs/
+
+# Lockfile huerfano en la raiz (no hay package.json en la raiz)
+/package-lock.json
