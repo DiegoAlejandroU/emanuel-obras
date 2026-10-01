@@ -71,7 +71,7 @@ export default function Layout({
           menuAbierto ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="px-4 pt-4 pb-3.5 flex items-center gap-2.5 border-b border-line-strong">
+        <div className="h-[52px] px-4 flex items-center gap-2.5 border-b border-line-strong flex-none">
           <div className="w-[30px] h-[30px] rounded-[7px] bg-brand-darker text-brand-soft flex items-center justify-center font-bold text-xs flex-none">
             EI
           </div>
