@@ -11,7 +11,9 @@ def autenticar(db: Session, email: str, password: str) -> str:
     if not usuario or not usuario.activo or not verificar_password(password, usuario.password_hash):
         raise AppError(401, "Credenciales inválidas")
 
-    return crear_token_acceso({"sub": str(usuario.id), "rol": usuario.rol})
+    # `nombre` solo se usa para mostrarlo en la interfaz; la autorización siempre
+    # sale del usuario y rol que el backend vuelve a cargar en cada petición.
+    return crear_token_acceso({"sub": str(usuario.id), "rol": usuario.rol, "nombre": usuario.nombre})
 
 
 def crear_usuario(db: Session, nombre: str, email: str, password: str, rol: str) -> models.Usuario:

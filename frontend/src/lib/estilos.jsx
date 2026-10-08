@@ -35,6 +35,18 @@ export function inicialesRol(rol) {
     .toUpperCase()
 }
 
+/** Iniciales del nombre del usuario (máx. 2); si no hay nombre, las del rol. */
+export function inicialesNombre(nombre, rol) {
+  const limpio = (nombre || '').trim()
+  if (!limpio) return inicialesRol(rol)
+  return limpio
+    .split(/\s+/)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 export function fmtCOP(valor) {
   const n = Number(valor) || 0
   return '$ ' + n.toLocaleString('es-CO')

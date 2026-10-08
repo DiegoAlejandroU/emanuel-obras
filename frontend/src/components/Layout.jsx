@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { inicialesRol, ETIQUETA_ROL } from '../lib/estilos.jsx'
+import { inicialesNombre, ETIQUETA_ROL } from '../lib/estilos.jsx'
 
 const ICONOS = {
   obras: (
@@ -127,11 +127,13 @@ export default function Layout({
         <div className="mt-auto p-3 border-t border-line-strong flex flex-col gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="w-[30px] h-[30px] rounded-full bg-brand-tint text-brand-text flex items-center justify-center text-[11.5px] font-semibold flex-none">
-              {inicialesRol(usuario.rol)}
+              {inicialesNombre(usuario.nombre, usuario.rol)}
             </div>
             <div className="flex flex-col leading-tight min-w-0 flex-1">
-              <span className="font-medium truncate text-sm">{ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
-              <span className="text-xs text-muted-2 truncate">Usuario #{usuario.id}</span>
+              <span className="font-medium truncate text-sm">{usuario.nombre || ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
+              <span className="text-xs text-muted-2 truncate">
+                {usuario.nombre ? ETIQUETA_ROL[usuario.rol] || usuario.rol : `Usuario #${usuario.id}`}
+              </span>
             </div>
             <button
               onClick={onCerrarSesion}
@@ -166,10 +168,19 @@ export default function Layout({
           </div>
           <div className="flex items-center gap-3.5 text-muted-2 text-[12.5px]">
             <span className="font-mono whitespace-nowrap capitalize hidden sm:inline">{FECHA_HOY}</span>
-            <span className="flex items-center gap-1.5 px-2 py-[3px] border border-line-strong rounded-full text-muted-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
-              {ETIQUETA_ROL[usuario.rol] || usuario.rol}
-            </span>
+            <div className="flex items-center gap-2.5 sm:pl-3.5 sm:border-l sm:border-line-strong min-w-0">
+              <div className="w-8 h-8 rounded-full bg-brand-tint text-brand-text flex items-center justify-center text-xs font-semibold flex-none">
+                {inicialesNombre(usuario.nombre, usuario.rol)}
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight min-w-0 max-w-[200px]">
+                <span className="font-semibold text-ink text-[13px] truncate">
+                  {usuario.nombre || ETIQUETA_ROL[usuario.rol] || usuario.rol}
+                </span>
+                {usuario.nombre && (
+                  <span className="text-[11.5px] text-muted-2 truncate">{ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
+                )}
+              </div>
+            </div>
           </div>
         </header>
 

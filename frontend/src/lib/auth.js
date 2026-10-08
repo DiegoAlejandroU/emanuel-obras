@@ -34,5 +34,6 @@ export function usuarioActualDesdeToken() {
     borrarToken()
     return null
   }
-  return { id: Number(payload.sub), rol: payload.rol }
+  // `nombre` no viene en tokens emitidos antes de este cambio; la interfaz cae al rol.
+  return { id: Number(payload.sub), rol: payload.rol, nombre: payload.nombre || null }
 }
