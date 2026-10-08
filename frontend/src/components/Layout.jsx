@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { inicialesNombre, ETIQUETA_ROL } from '../lib/estilos.jsx'
 
 const ICONOS = {
@@ -60,6 +60,26 @@ export default function Layout({
   children,
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
+  const menuUsuarioRef = useRef(null)
+
+  useEffect(() => {
+    if (!menuUsuarioAbierto) return
+    function cerrarSiClicFuera(e) {
+      if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(e.target)) setMenuUsuarioAbierto(false)
+    }
+    function cerrarConEscape(e) {
+      if (e.key === 'Escape') setMenuUsuarioAbierto(false)
+    }
+    document.addEventListener('mousedown', cerrarSiClicFuera)
+    document.addEventListener('keydown', cerrarConEscape)
+    return () => {
+      document.removeEventListener('mousedown', cerrarSiClicFuera)
+      document.removeEventListener('keydown', cerrarConEscape)
+    }
+  }, [menuUsuarioAbierto])
+
+  const nombreMostrado = usuario.nombre || ETIQUETA_ROL[usuario.rol] || usuario.rol
 
   return (
     <div className="h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)] bg-paper text-ink font-sans">
@@ -123,29 +143,6 @@ export default function Layout({
             )
           })}
         </nav>
-
-        <div className="mt-auto p-3 border-t border-line-strong flex flex-col gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-[30px] h-[30px] rounded-full bg-brand-tint text-brand-text flex items-center justify-center text-[11.5px] font-semibold flex-none">
-              {inicialesNombre(usuario.nombre, usuario.rol)}
-            </div>
-            <div className="flex flex-col leading-tight min-w-0 flex-1">
-              <span className="font-medium truncate text-sm">{usuario.nombre || ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
-              <span className="text-xs text-muted-2 truncate">
-                {usuario.nombre ? ETIQUETA_ROL[usuario.rol] || usuario.rol : `Usuario #${usuario.id}`}
-              </span>
-            </div>
-            <button
-              onClick={onCerrarSesion}
-              title="Cerrar sesión"
-              className="w-7 h-7 border-none bg-transparent rounded-md text-muted-2 cursor-pointer flex items-center justify-center hover:bg-[#e7e6e0]"
-            >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M6 2.5H3v11h3M10 5l3 3-3 3M13 8H6"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
       </aside>
 
       <main className="min-w-0 overflow-auto flex flex-col">
@@ -168,18 +165,63 @@ export default function Layout({
           </div>
           <div className="flex items-center gap-3.5 text-muted-2 text-[12.5px]">
             <span className="font-mono whitespace-nowrap capitalize hidden sm:inline">{FECHA_HOY}</span>
-            <div className="flex items-center gap-2.5 sm:pl-3.5 sm:border-l sm:border-line-strong min-w-0">
-              <div className="w-8 h-8 rounded-full bg-brand-tint text-brand-text flex items-center justify-center text-xs font-semibold flex-none">
-                {inicialesNombre(usuario.nombre, usuario.rol)}
-              </div>
-              <div className="hidden sm:flex flex-col leading-tight min-w-0 max-w-[200px]">
-                <span className="font-semibold text-ink text-[13px] truncate">
-                  {usuario.nombre || ETIQUETA_ROL[usuario.rol] || usuario.rol}
-                </span>
-                {usuario.nombre && (
-                  <span className="text-[11.5px] text-muted-2 truncate">{ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
-                )}
-              </div>
+            <div ref={menuUsuarioRef} className="relative sm:pl-3.5 sm:border-l sm:border-line-strong">
+              <button
+                type="button"
+                onClick={() => setMenuUsuarioAbierto((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuUsuarioAbierto}
+                className="flex items-center gap-2.5 min-w-0 rounded-md px-1 py-1 hover:bg-[#f1f1ed] cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-full bg-brand-tint text-brand-text flex items-center justify-center text-xs font-semibold flex-none">
+                  {inicialesNombre(usuario.nombre, usuario.rol)}
+                </div>
+                <div className="hidden sm:flex flex-col leading-tight min-w-0 max-w-[200px] text-left">
+                  <span className="font-semibold text-ink text-[13px] truncate">{nombreMostrado}</span>
+                  {usuario.nombre && (
+                    <span className="text-[11.5px] text-muted-2 truncate">{ETIQUETA_ROL[usuario.rol] || usuario.rol}</span>
+                  )}
+                </div>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className={`flex-none text-muted-2 transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`}
+                >
+                  <path d="M4 6l4 4 4-4"></path>
+                </svg>
+              </button>
+
+              {menuUsuarioAbierto && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-[220px] bg-white border border-line-strong rounded-[10px] shadow-card py-1.5 z-20"
+                >
+                  <div className="sm:hidden px-3 py-2 border-b border-line-soft mb-1">
+                    <p className="m-0 font-semibold text-[13px] text-ink truncate">{nombreMostrado}</p>
+                    {usuario.nombre && (
+                      <p className="m-0 text-[11.5px] text-muted-2">{ETIQUETA_ROL[usuario.rol] || usuario.rol}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuUsuarioAbierto(false)
+                      onCerrarSesion()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 h-9 text-left text-sm text-ink hover:bg-[#f1f1ed] cursor-pointer"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" className="text-muted-2">
+                      <path d="M6 2.5H3v11h3M10 5l3 3-3 3M13 8H6"></path>
+                    </svg>
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
