@@ -100,6 +100,8 @@ export const api = {
     return request('/api/auth/login', { method: 'POST', body })
   },
 
+  usuarioActual: () => request('/api/auth/me'),
+
   // Usuarios (solo administrador)
   listarUsuarios: () => request('/api/usuarios/'),
   crearUsuario: (data) => request('/api/usuarios/', { method: 'POST', body: JSON.stringify(data) }),

@@ -24,6 +24,17 @@ export default function App() {
     api.listarObras().then(setObras).catch(() => {})
   }, [usuario])
 
+  // Los tokens emitidos antes de que el token llevara el nombre no lo traen:
+  // se pide al backend para mostrar el nombre sin obligar a volver a iniciar sesión.
+  const falta_nombre = Boolean(usuario) && !usuario.nombre
+  useEffect(() => {
+    if (!falta_nombre) return
+    api
+      .usuarioActual()
+      .then((u) => setUsuario((prev) => (prev ? { ...prev, nombre: u.nombre } : prev)))
+      .catch(() => {})
+  }, [falta_nombre])
+
   if (!usuario) {
     return <Login onIngreso={() => setUsuario(usuarioActualDesdeToken())} />
   }

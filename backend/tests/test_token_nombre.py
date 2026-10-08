@@ -14,3 +14,19 @@ def test_token_incluye_nombre_rol_y_sub(client, db):
     assert payload["nombre"] == "María Pérez"
     assert payload["rol"] == "residente_obra"
     assert payload["sub"]
+
+
+def test_me_devuelve_el_usuario_autenticado(client, token_admin):
+    from .conftest import auth
+
+    resp = client.get("/api/auth/me", headers=auth(token_admin))
+    assert resp.status_code == 200, resp.text
+    datos = resp.json()
+    assert datos["email"] == "admin@test.com"
+    assert datos["rol"] == "administrador"
+    assert datos["nombre"]
+    assert "password_hash" not in datos
+
+
+def test_me_requiere_token(client):
+    assert client.get("/api/auth/me").status_code == 401
