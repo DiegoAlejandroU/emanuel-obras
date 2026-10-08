@@ -70,6 +70,10 @@ class IncidenteRespuesta(IncidenteCrear):
     model_config = ConfigDict(from_attributes=True)
     id: int
     bitacora_id: int
+    estado: str = "abierto"
+    responsable: Optional[str] = None
+    fecha_limite: Optional[date] = None
+    cerrado_en: Optional[datetime] = None
 
 
 # ---------- Bitácora diaria ----------

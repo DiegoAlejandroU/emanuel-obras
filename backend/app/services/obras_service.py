@@ -104,22 +104,31 @@ def calcular_indicadores(db: Session, obra_id: int) -> schemas.IndicadorObra:
     actividades = db.query(models.Actividad).filter(models.Actividad.obra_id == obra_id).all()
     avance_acumulado_por_actividad = _avance_acumulado_por_actividad(db, actividades)
 
-    indicadores_actividad = [
-        schemas.IndicadorActividad(
-            actividad_id=actividad.id,
-            nombre=actividad.nombre,
-            peso_porcentual=actividad.peso_porcentual or 0,
-            avance_acumulado_porcentual=round(
-                min(100.0, avance_acumulado_por_actividad.get(actividad.id, 0.0)), 2
-            ),
+    indicadores_actividad = []
+    for actividad in actividades:
+        avance_pct = min(100.0, avance_acumulado_por_actividad.get(actividad.id, 0.0))
+        indicadores_actividad.append(
+            schemas.IndicadorActividad(
+                actividad_id=actividad.id,
+                nombre=actividad.nombre,
+                peso_porcentual=actividad.peso_porcentual or 0,
+                avance_acumulado_porcentual=round(avance_pct, 2),
+                costo_presupuestado=actividad.costo_presupuestado or 0,
+                costo_real=actividad.costo_real or 0,
+                valor_ganado=round((actividad.costo_presupuestado or 0) * avance_pct / 100, 2),
+            )
         )
-        for actividad in actividades
-    ]
+    costo_real_total = round(sum(i.costo_real for i in indicadores_actividad), 2)
+    valor_ganado_total = round(sum(i.valor_ganado for i in indicadores_actividad), 2)
 
     presupuesto_total = obra.presupuesto_total or 0
     avance_fisico, avance_financiero = _resumen_desde_acumulados(
         actividades, avance_acumulado_por_actividad, presupuesto_total
     )
+
+    from .incidentes_service import listar_incidentes_obra  # import local: evita ciclo con obras_service
+
+    abiertos = [i for i in listar_incidentes_obra(db, obra_id) if i.estado != "cerrado"]
 
     return schemas.IndicadorObra(
         obra_id=obra.id,
@@ -128,6 +137,12 @@ def calcular_indicadores(db: Session, obra_id: int) -> schemas.IndicadorObra:
         avance_financiero_porcentual=avance_financiero,
         presupuesto_total=presupuesto_total,
         actividades=indicadores_actividad,
+        costo_real_total=costo_real_total,
+        valor_ganado_total=valor_ganado_total,
+        desviacion_costo=round(valor_ganado_total - costo_real_total, 2),
+        indice_costo=round(valor_ganado_total / costo_real_total, 2) if costo_real_total > 0 else None,
+        incidentes_abiertos=len(abiertos),
+        incidentes_vencidos=sum(1 for i in abiertos if i.vencido),
     )
 
 

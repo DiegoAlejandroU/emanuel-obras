@@ -18,6 +18,7 @@ from .bitacora import (
     IncidenteRespuesta,
 )
 from .alerta import AlertaRespuesta
+from .incidente import IncidenteSeguimientoRespuesta, IncidenteSeguimientoActualizar
 from .indicadores import IndicadorActividad, IndicadorObra, PuntoHistoricoAvance
 
 __all__ = [
@@ -45,6 +46,8 @@ __all__ = [
     "IncidenteCrear",
     "IncidenteRespuesta",
     "AlertaRespuesta",
+    "IncidenteSeguimientoRespuesta",
+    "IncidenteSeguimientoActualizar",
     "IndicadorActividad",
     "IndicadorObra",
     "PuntoHistoricoAvance",

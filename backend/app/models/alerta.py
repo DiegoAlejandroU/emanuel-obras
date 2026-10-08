@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 
 from ..db.base import Base
 
-TIPOS_VALIDOS = ("retraso_fisico", "retraso_financiero", "incidente_grave")
+TIPOS_VALIDOS = ("retraso_fisico", "retraso_financiero", "incidente_grave", "sobrecosto", "incidente_vencido")
 ESTADOS_VALIDOS = ("activa", "resuelta")
 
 

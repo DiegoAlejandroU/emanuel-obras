@@ -3,9 +3,12 @@ import { api } from '../lib/api.js'
 import { usuarioActualDesdeToken } from '../lib/auth.js'
 import GraficaAvanceHistorico from '../components/GraficaAvanceHistorico.jsx'
 import GraficaAvancePorActividad from '../components/GraficaAvancePorActividad.jsx'
+import PanelCostos from '../components/PanelCostos.jsx'
+import PanelIncidentes from '../components/PanelIncidentes.jsx'
 import { fmtCOP } from '../lib/estilos.jsx'
 
 const ROLES_CON_REPORTES = ['administrador', 'gerencia', 'interventor']
+const ROLES_GESTION_INCIDENTES = ['administrador', 'residente_obra', 'interventor']
 
 /**
  * `obras`, `obraId` y `onObraIdChange` son opcionales: si no se reciben
@@ -19,11 +22,13 @@ export default function Dashboard({ obras: obrasProp, obraId: obraIdProp, onObra
   const [indicadores, setIndicadores] = useState(null)
   const [historico, setHistorico] = useState([])
   const [alertas, setAlertas] = useState([])
+  const [incidentes, setIncidentes] = useState([])
   const [error, setError] = useState(null)
   const [descargando, setDescargando] = useState(null)
 
   const usuario = usuarioActualDesdeToken()
   const puedeVerReportes = usuario && ROLES_CON_REPORTES.includes(usuario.rol)
+  const puedeGestionarIncidentes = usuario && ROLES_GESTION_INCIDENTES.includes(usuario.rol)
 
   const obras = obrasProp ?? obrasPropias
   const obraId = obraIdProp !== undefined ? obraIdProp : obraIdPropio
@@ -41,10 +46,12 @@ export default function Dashboard({ obras: obrasProp, obraId: obraIdProp, onObra
       setIndicadores(null)
       setHistorico([])
       setAlertas([])
+      setIncidentes([])
       return
     }
     api.indicadoresObra(obraId).then(setIndicadores).catch(() => setError('No se pudieron cargar los indicadores de la obra.'))
     api.listarAlertas(obraId).then(setAlertas).catch(() => setError('No se pudieron cargar las alertas de la obra.'))
+    api.listarIncidentes(obraId).then(setIncidentes).catch(() => setError('No se pudieron cargar los incidentes de la obra.'))
     api.historicoAvanceObra(obraId).then(setHistorico).catch(() => setError('No se pudo cargar el histórico de avance de la obra.'))
   }, [obraId])
 
@@ -52,6 +59,18 @@ export default function Dashboard({ obras: obrasProp, obraId: obraIdProp, onObra
     try {
       await api.resolverAlerta(alerta.id)
       setAlertas((prev) => prev.map((a) => (a.id === alerta.id ? { ...a, estado: 'resuelta' } : a)))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function actualizarIncidente(incidente, cambios) {
+    setError(null)
+    try {
+      const actualizado = await api.actualizarIncidente(incidente.id, cambios)
+      setIncidentes((prev) => prev.map((i) => (i.id === actualizado.id ? actualizado : i)))
+      // los contadores de incidentes abiertos/vencidos viven en los indicadores
+      api.indicadoresObra(obraId).then(setIndicadores).catch(() => {})
     } catch (err) {
       setError(err.message)
     }
@@ -210,6 +229,15 @@ export default function Dashboard({ obras: obrasProp, obraId: obraIdProp, onObra
                 {alertas.length === 0 && <p className="text-sm text-muted-3 px-[18px] py-4">Sin alertas para esta obra.</p>}
               </div>
             </div>
+          </div>
+
+          <div className="grid gap-3.5 items-start grid-cols-1 lg:[grid-template-columns:minmax(0,3fr)_minmax(320px,2fr)]">
+            <PanelCostos indicadores={indicadores} />
+            <PanelIncidentes
+              incidentes={incidentes}
+              puedeGestionar={puedeGestionarIncidentes}
+              onActualizar={actualizarIncidente}
+            />
           </div>
 
           <div className="bg-white border border-line rounded-[10px] p-[18px] flex flex-col gap-3">

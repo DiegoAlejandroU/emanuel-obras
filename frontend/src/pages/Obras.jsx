@@ -19,6 +19,7 @@ const ACTIVIDAD_VACIA = {
   descripcion: '',
   pesoPorcentualUi: 0, // 0-100 en la interfaz; se convierte a fracción 0-1 al guardar
   costo_presupuestado: 0,
+  costo_real: 0,
   fecha_inicio_programada: '',
   fecha_fin_programada: '',
 }
@@ -172,6 +173,7 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
         descripcion: formActividad.descripcion || null,
         peso_porcentual: (Number(formActividad.pesoPorcentualUi) || 0) / 100,
         costo_presupuestado: Number(formActividad.costo_presupuestado) || 0,
+        costo_real: Number(formActividad.costo_real) || 0,
         fecha_inicio_programada: formActividad.fecha_inicio_programada || null,
         fecha_fin_programada: formActividad.fecha_fin_programada || null,
       }
@@ -195,6 +197,7 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
       descripcion: actividad.descripcion || '',
       pesoPorcentualUi: Math.round((actividad.peso_porcentual || 0) * 100),
       costo_presupuestado: actividad.costo_presupuestado,
+      costo_real: actividad.costo_real || 0,
       fecha_inicio_programada: actividad.fecha_inicio_programada || '',
       fecha_fin_programada: actividad.fecha_fin_programada || '',
     })
@@ -460,6 +463,16 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
                   />
                 </label>
                 <label className="text-xs text-muted-3 flex flex-col gap-1">
+                  Costo real (gastado)
+                  <input
+                    type="number"
+                    min="0"
+                    className="border border-line-input rounded-[7px] px-2.5 py-1.5 outline-none font-mono text-sm"
+                    value={formActividad.costo_real}
+                    onChange={(e) => setFormActividad({ ...formActividad, costo_real: e.target.value })}
+                  />
+                </label>
+                <label className="text-xs text-muted-3 flex flex-col gap-1">
                   Inicio programado
                   <input
                     type="date"
@@ -504,7 +517,8 @@ export default function Obras({ puedeEditar, onObrasCambian }) {
                     <p className="m-0 font-medium text-sm truncate">{a.nombre}</p>
                     <p className="m-0 text-xs text-muted-2">
                       Peso: <span className="font-mono">{Math.round((a.peso_porcentual || 0) * 100)}%</span> · Presupuestado:{' '}
-                      <span className="font-mono">{fmtCOP(a.costo_presupuestado)}</span> · Estado: {a.estado}
+                      <span className="font-mono">{fmtCOP(a.costo_presupuestado)}</span> · Real:{' '}
+                      <span className="font-mono">{fmtCOP(a.costo_real)}</span> · Estado: {a.estado}
                     </p>
                   </div>
                   {puedeEditar && (

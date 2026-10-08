@@ -10,7 +10,7 @@ from .core.rate_limit import limiter
 from .db.base import Base
 from .db.session import engine
 from .exceptions import AppError, respuesta_error
-from .routers import actividades, alertas, auth, bitacoras, fotos_avance, obras, reportes, usuarios
+from .routers import actividades, alertas, auth, bitacoras, fotos_avance, incidentes, obras, reportes, usuarios
 
 # Crea las tablas si no existen (para desarrollo; en producción usar Alembic).
 Base.metadata.create_all(bind=engine)
@@ -61,6 +61,7 @@ app.include_router(actividades.router)
 app.include_router(bitacoras.router)
 app.include_router(fotos_avance.router)
 app.include_router(alertas.router)
+app.include_router(incidentes.router)
 app.include_router(reportes.router)
 
 

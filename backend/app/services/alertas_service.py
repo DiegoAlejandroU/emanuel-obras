@@ -89,6 +89,27 @@ def generar_alertas_retraso(db: Session, obra_id: int) -> list[models.Alerta]:
             f"({round(avance_programado, 2)}%) para la fecha.",
         )
 
+    # Sobrecosto: el gasto real supera lo que costaba el avance aprobado.
+    if indicadores.costo_real_total > indicadores.valor_ganado_total * (1 + settings.umbral_alerta_retraso):
+        peores = sorted(
+            (a for a in indicadores.actividades if a.costo_real > a.valor_ganado * (1 + settings.umbral_alerta_retraso)),
+            key=lambda a: a.costo_real - a.valor_ganado,
+            reverse=True,
+        )[:3]
+        detalle = "; ".join(f"{a.nombre} (real {a.costo_real:,.0f} vs {a.valor_ganado:,.0f})" for a in peores)
+        _crear_si_no_activa(
+            "sobrecosto",
+            f"Costo real ({indicadores.costo_real_total:,.0f}) supera el valor del avance aprobado "
+            f"({indicadores.valor_ganado_total:,.0f})." + (f" Mayor desviación: {detalle}." if detalle else ""),
+        )
+
+    # Incidentes cuya fecha límite ya pasó sin cerrarse.
+    if indicadores.incidentes_vencidos > 0:
+        _crear_si_no_activa(
+            "incidente_vencido",
+            f"{indicadores.incidentes_vencidos} incidente(s) con fecha límite vencida sin cerrar.",
+        )
+
     db.commit()
     for alerta in nuevas:
         db.refresh(alerta)

@@ -153,6 +153,11 @@ export const api = {
   listarAlertas: (obraId) => request(`/api/obras/${obraId}/alertas`),
   resolverAlerta: (alertaId) => request(`/api/alertas/${alertaId}/resolver`, { method: 'PATCH' }),
 
+  // Incidentes (seguimiento)
+  listarIncidentes: (obraId) => request(`/api/obras/${obraId}/incidentes`),
+  actualizarIncidente: (incidenteId, data) =>
+    request(`/api/incidentes/${incidenteId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   // Reportes exportables (gerencia / interventoría)
   descargarReportePdf: (obraId, nombreObra) =>
     descargarArchivo(`/api/obras/${obraId}/reportes/pdf`, `reporte_${nombreObra}.pdf`),
