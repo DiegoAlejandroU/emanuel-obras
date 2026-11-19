@@ -144,7 +144,7 @@ Se ejecuta en GitHub Actions con cada push a `develop`, `feature/**` o `fix/**` 
 | Job | Qué verifica |
 | --- | --- |
 | Backend · lint, seguridad y pruebas | `ruff`, `bandit`, migraciones de Alembic (subir, bajar y volver a subir) y las pruebas de `pytest` contra un **PostgreSQL real** (servicio del job). Publica el reporte `pytest.xml` como artefacto. |
-| Backend · auditoría de dependencias | `pip-audit` sobre `requirements.txt`. Es **informativo**: reporta vulnerabilidades conocidas de las librerías sin bloquear el pipeline. |
+| Backend · auditoría de dependencias | `pip-audit` sobre `requirements.txt`. Es **bloqueante**: si una librería de la app tiene una vulnerabilidad conocida, el pipeline falla y no se despliega. |
 | Frontend · build | `npm ci` y `npm run build`. |
 | Docker · build y prueba de humo | Valida los dos `docker-compose`, construye las imágenes, levanta el sistema con `docker compose up --wait` y corre `.github/scripts/prueba_humo_local.sh`: salud de la API, migraciones, login con JWT, rechazo sin token y el frontend servido por nginx. |
 

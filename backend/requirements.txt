@@ -1,16 +1,18 @@
-fastapi==0.115.0
+fastapi==0.165.0
 uvicorn[standard]==0.30.6
 gunicorn==23.0.0
 sqlalchemy==2.0.35
 psycopg2-binary==2.9.13
-pydantic==2.9.2
-pydantic-settings==2.5.2
-python-dotenv==1.0.1
+pydantic==2.14.4
+pydantic-settings==2.16.3
+python-dotenv==1.2.4
 alembic==1.13.3
 passlib==1.7.4
 bcrypt==4.0.1  # passlib 1.7.4 no reconoce bcrypt>=4.1 (rompe el hashing de contraseñas)
-python-jose[cryptography]==3.3.0
-python-multipart==0.0.9
+# PyJWT reemplaza a python-jose (sin mantenimiento y con vulnerabilidades
+# sin corregir, incluida la de su dependencia ecdsa).
+PyJWT==2.15.1
+python-multipart==0.0.34
 email-validator==2.2.0
 slowapi==0.1.9
 reportlab==4.2.5

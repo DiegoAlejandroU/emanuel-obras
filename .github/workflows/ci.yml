@@ -87,11 +87,10 @@ jobs:
           if-no-files-found: ignore
 
   dependencias:
-    name: Backend · auditoría de dependencias (informativa)
+    name: Backend · auditoría de dependencias
     runs-on: ubuntu-latest
-    # Informativa: reporta vulnerabilidades conocidas de las librerías, pero
-    # no bloquea el pipeline (actualizarlas es una tarea aparte).
-    continue-on-error: true
+    # Bloqueante: si alguna librería de la app tiene una vulnerabilidad
+    # conocida, el pipeline falla y no se despliega hasta actualizarla.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -126,7 +125,7 @@ jobs:
   docker:
     name: Docker · build y prueba de humo
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, dependencias, frontend]
     steps:
       - uses: actions/checkout@v4
 
