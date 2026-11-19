@@ -42,12 +42,12 @@ backend/app/
 cd backend
 python -m venv .venv
 source .venv/bin/activate   # En Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # app + herramientas de pruebas
 cp .env.example .env         # ajustar DATABASE_URL y generar un SECRET_KEY propio
 uvicorn app.main:app --reload
 ```
 
-**En Windows**, `backend\setup_entorno.bat` hace los tres primeros pasos (crea `.venv`, instala `requirements.txt` y copia `.env.example` a `.env` si no existe) — correrlo una sola vez con doble clic o `setup_entorno.bat` desde `backend\`. Después hay que editar `backend\.env` con la clave real del usuario `postgres` y crear la base de datos (`psql -U postgres -c "CREATE DATABASE emanuel_obras;"`) antes de arrancar el backend.
+**En Windows**, `backend\setup_entorno.bat` hace los tres primeros pasos (crea `.venv`, instala `requirements-dev.txt` y copia `.env.example` a `.env` si no existe) — correrlo una sola vez con doble clic o `setup_entorno.bat` desde `backend\`. Después hay que editar `backend\.env` con la clave real del usuario `postgres` y crear la base de datos (`psql -U postgres -c "CREATE DATABASE emanuel_obras;"`) antes de arrancar el backend.
 
 La API queda en `http://localhost:8000` y la documentación interactiva en `http://localhost:8000/docs`.
 
@@ -75,10 +75,12 @@ Esto la deja corriendo todos los días a las 6:00 a. m. (ajustable con `/st`). P
 
 ```bash
 pytest -q            # pruebas de integración de las reglas de negocio (usa SQLite, no toca la BD real)
-ruff check app scripts
+ruff check app scripts tests
 bandit -r app
-pip-audit
+pip-audit -r requirements.txt
 ```
+
+Las dependencias están separadas: `requirements.txt` es solo lo que necesita la app (es lo único que entra a la imagen Docker) y `requirements-dev.txt` agrega las herramientas de pruebas y calidad. El pipeline de CI corre estos mismos comandos en cada push (ver [Docker, CI y CD](#docker-ci-y-cd)).
 
 **Reportes exportables (PDF/XLSX).** `GET /api/obras/{obra_id}/reportes/pdf` y `GET /api/obras/{obra_id}/reportes/xlsx` — roles `administrador`, `gerencia` e `interventor` (no `residente_obra`). Incluyen los datos de la obra, los indicadores de avance físico/financiero, el avance por actividad y las alertas (activas y resueltas). Se generan al vuelo a partir de los mismos datos de `/indicadores` y `/alertas`, sin tablas nuevas. Desde el dashboard del frontend aparecen como botones "Descargar reporte PDF/Excel" cuando el usuario tiene uno de esos roles.
 
@@ -105,7 +107,68 @@ La app queda en `http://localhost:5173`. Inicia sesión con el usuario administr
 | `residente_obra` | Registrar y editar bitácoras propias (mientras estén en borrador/rechazada), ver obras y dashboard |
 | `interventor` | Aprobar o rechazar bitácoras, resolver alertas, ver todo |
 
-## Despliegue en producción
+## Docker, CI y CD
+
+### Correr todo el sistema con Docker (local)
+
+Con Docker Desktop abierto, desde la raíz del repositorio:
+
+```bash
+docker compose up --build
+```
+
+Levanta tres contenedores (`docker-compose.yml`):
+
+| Servicio | Imagen | Puerto en el equipo |
+| --- | --- | --- |
+| `db` | `postgres:16-alpine`, con volumen `db_data` | `5433` (para no chocar con un PostgreSQL local en 5432) |
+| `backend` | `backend/Dockerfile` — aplica las migraciones de Alembic y arranca gunicorn | `8000` (API y `/docs`) |
+| `frontend` | `frontend/Dockerfile` — build de Vite servido por nginx | `8080` |
+
+El primer arranque tarda unos minutos (descarga imágenes e instala dependencias); los siguientes reutilizan la cache de Docker. Cada servicio tiene *healthcheck*: el backend espera a que la base esté lista y el frontend espera a que la API responda.
+
+Crear el primer usuario administrador (una sola vez, con todo arriba, en otra terminal):
+
+```bash
+docker compose exec backend python -m scripts.crear_usuario_admin
+```
+
+Luego entrar a `http://localhost:8080`. Para detener: `Ctrl+C` o `docker compose down` (los datos se conservan); `docker compose down -v` borra también la base de datos.
+
+**Buenas prácticas aplicadas en las imágenes:** imagen *multi-stage* en el frontend (la imagen final solo lleva nginx y el build, sin Node ni `node_modules`); dependencias copiadas antes que el código para aprovechar la cache de capas; `npm ci` para builds reproducibles; la API corre con un usuario sin privilegios (no root); `.dockerignore` en ambos servicios (sin secretos, pruebas ni `node_modules`); `HEALTHCHECK` en las dos imágenes; la imagen del backend no incluye las herramientas de pruebas.
+
+### Pipeline de CI (`.github/workflows/ci.yml`)
+
+Se ejecuta en GitHub Actions con cada push a `develop`, `feature/**` o `fix/**` y en cada pull request hacia `develop` o `produccion`:
+
+| Job | Qué verifica |
+| --- | --- |
+| Backend · lint, seguridad y pruebas | `ruff`, `bandit`, migraciones de Alembic (subir, bajar y volver a subir) y las pruebas de `pytest` contra un **PostgreSQL real** (servicio del job). Publica el reporte `pytest.xml` como artefacto. |
+| Backend · auditoría de dependencias | `pip-audit` sobre `requirements.txt`. Es **informativo**: reporta vulnerabilidades conocidas de las librerías sin bloquear el pipeline. |
+| Frontend · build | `npm ci` y `npm run build`. |
+| Docker · build y prueba de humo | Valida los dos `docker-compose`, construye las imágenes, levanta el sistema con `docker compose up --wait` y corre `.github/scripts/prueba_humo_local.sh`: salud de la API, migraciones, login con JWT, rechazo sin token y el frontend servido por nginx. |
+
+### Pipeline de CD (`.github/workflows/cd.yml`)
+
+Se ejecuta con cada push a `produccion` (o a mano desde la pestaña *Actions*):
+
+1. **CI completo** (reutiliza `ci.yml`). Si algo falla, no se despliega nada.
+2. **Publica las imágenes** en GitHub Container Registry: `ghcr.io/<usuario>/emanuel-obras-backend` y `-frontend`, con las etiquetas `<sha del commit>`, `produccion` y `latest`. Quedan en la sección *Packages* del repositorio.
+3. **Despliega el backend en Render** llamando a su *Deploy Hook*.
+4. **Verifica el despliegue**: `.github/scripts/esperar_despliegue.sh` espera hasta que `GET /` de la API en vivo reporte el commit recién desplegado (campo `version`, que Render llena con `RENDER_GIT_COMMIT`) y luego prueba la API y el frontend en producción.
+
+El frontend lo sigue desplegando Vercel automáticamente con el mismo push.
+
+**Configuración (una sola vez):**
+
+1. En Render → servicio del backend → *Settings* → *Deploy Hook*: copiar la URL.
+2. En GitHub → repositorio → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*: nombre `RENDER_DEPLOY_HOOK_URL`, valor la URL del paso 1. Es un secreto: no se pone en el código ni en el README.
+3. En Render → *Settings* → *Auto-Deploy*: ponerlo en **Off**, para que quien despliegue sea el pipeline (solo después de que pase el CI) y no cada push directo. Verificar también que la rama del servicio sea `produccion`.
+4. Opcional: en GitHub → *Settings* → *Environments* → `produccion`, agregar *Required reviewers* para que cada despliegue pida aprobación manual.
+
+**Flujo de trabajo:** cambios en una rama `feature/...` → push (corre el CI) → merge a `develop` (corre el CI) → merge de `develop` a `produccion` y push (corre el CD y se despliega).
+
+## Despliegue en producción (servidor propio con Caddy)
 
 Despliegue genérico con Docker Compose + Caddy (HTTPS automático vía Let's
 Encrypt) — no apunta a ningún servidor ni dominio en particular, para poder
@@ -174,4 +237,5 @@ alembic revision -m "descripcion_del_cambio"  # o --autogenerate si aplica
 
 - **Backend**: arquitectura por capas (`core/db/models/schemas/services/routers`), autenticación JWT + RBAC, CRUD de obras/actividades, bitácora diaria con máquina de estados y aprobación, indicadores de avance físico/financiero (solo con bitácoras aprobadas), modelo de alertas de retraso (generación vía script, no vía API), reportes exportables PDF/XLSX para gerencia e interventoría, formato de error uniforme, rate limiting en login, pruebas automatizadas de las reglas de negocio (R1–R10).
 - **Frontend**: login con JWT, navegación por rol, gestión de obras/actividades, bitácora con registros de personal/materiales/incidentes y flujo de envío/aprobación/rechazo, dashboard con indicadores, alertas y descarga de reportes PDF/Excel (administrador, gerencia, interventor), gestión de usuarios (solo administrador).
-- **Pendiente** (próximo frente del roadmap): gráficas más elaboradas en el dashboard. La generación automática de alertas por tarea programada (Windows Task Scheduler), los reportes exportables (PDF/XLSX) y el despliegue de producción con HTTPS (Docker Compose + Caddy) ya están listos — ver las secciones correspondientes arriba.
+- **DevOps**: sistema dockerizado (`docker-compose.yml` para local, `docker-compose.prod.yml` para un servidor propio), CI en GitHub Actions (lint, seguridad, migraciones, pruebas contra PostgreSQL, build y prueba de humo con Docker) y CD a producción (imágenes en GitHub Container Registry, deploy en Render y verificación automática).
+- **En producción**: frontend en Vercel (`https://emanuel-obras.vercel.app`), API en Render (`https://emanuel-obras.onrender.com`) y base de datos en Neon.

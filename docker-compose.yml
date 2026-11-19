@@ -1,0 +1,70 @@
+# Sistema completo en local con Docker: base de datos + API + frontend.
+#
+#   docker compose up --build        # levanta todo (Ctrl+C para detener)
+#   docker compose up -d --build     # igual, en segundo plano
+#   docker compose down              # detiene (los datos se conservan)
+#   docker compose down -v           # detiene y borra la base de datos
+#
+# Primer usuario administrador (una sola vez, con todo arriba):
+#   docker compose exec backend python -m scripts.crear_usuario_admin
+#
+# Luego: frontend en http://localhost:8080 · API en http://localhost:8000/docs
+#
+# Las claves de este archivo son SOLO para desarrollo local. Producción usa
+# docker-compose.prod.yml con secretos en archivos .env que no se versionan.
+
+name: emanuel-obras
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: emanuel
+      POSTGRES_PASSWORD: emanuel_local
+      POSTGRES_DB: emanuel_obras
+    # 5433 en el equipo para no chocar con un PostgreSQL local en 5432.
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emanuel -d emanuel_obras"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        APP_VERSION: local
+    environment:
+      DATABASE_URL: postgresql://emanuel:emanuel_local@db:5432/emanuel_obras
+      SECRET_KEY: ${SECRET_KEY:-solo-para-desarrollo-local-no-usar-en-produccion}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      ALLOWED_ORIGIN: http://localhost:8080
+      ENVIRONMENT: development
+      GUNICORN_WORKERS: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  uploads:

@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Deja el entorno local del backend listo: crea el .venv, instala requirements.txt
+rem Deja el entorno local del backend listo: crea el .venv, instala requirements-dev.txt
 rem y copia .env.example a .env si todavia no existe. Correr una sola vez desde
 rem esta carpeta (backend\), con doble clic o con:
 rem
@@ -23,9 +23,9 @@ if not exist ".venv\Scripts\python.exe" (
     echo .venv ya existe, se reutiliza.
 )
 
-echo Instalando dependencias de requirements.txt ...
+echo Instalando dependencias de requirements-dev.txt ^(app + pruebas^) ...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+".venv\Scripts\python.exe" -m pip install -r requirements-dev.txt
 if errorlevel 1 (
     echo ERROR: fallo la instalacion de dependencias.
     exit /b 1

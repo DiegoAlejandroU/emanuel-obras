@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +67,19 @@ app.include_router(incidentes.router)
 app.include_router(reportes.router)
 
 
+def version_desplegada() -> str:
+    """Commit que está corriendo. Render define RENDER_GIT_COMMIT en cada
+    despliegue; la imagen Docker trae APP_VERSION (el SHA que la construyó en
+    el CD). La prueba de humo del pipeline compara este valor con el commit
+    que acaba de desplegar para saber que la versión nueva ya está en línea."""
+    return os.getenv("RENDER_GIT_COMMIT") or os.getenv("APP_VERSION") or "local"
+
+
 @app.get("/")
 def root():
-    return {"status": "ok", "servicio": "emanuel-obras API", "ambiente": settings.environment}
+    return {
+        "status": "ok",
+        "servicio": "emanuel-obras API",
+        "ambiente": settings.environment,
+        "version": version_desplegada(),
+    }

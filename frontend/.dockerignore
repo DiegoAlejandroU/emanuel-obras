@@ -1,0 +1,11 @@
+# Lo que NO entra al contexto de build del frontend. Sobre todo node_modules:
+# en Windows trae binarios que no sirven en Linux y pesa cientos de MB; la
+# imagen instala sus propias dependencias con npm ci.
+node_modules
+dist
+.vite
+npm-debug.log*
+.env
+.env.*
+Dockerfile
+.dockerignore

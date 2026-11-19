@@ -1,10 +1,29 @@
+# Lo que NO entra a la imagen del backend.
+
+# Entornos y cachés locales
 .venv
+.venv-test
 __pycache__
 *.pyc
 .pytest_cache
 .ruff_cache
 logs
+
+# Secretos: las variables llegan por el entorno del contenedor
 .env
 .env.prod
+
+# Datos locales
 test_emanuel_obras.db
 uploads
+
+# Pruebas y herramientas de desarrollo (se usan en el CI, no en producción)
+tests
+pytest.ini
+requirements-dev.txt
+reports
+*.bat
+
+# Archivos de Docker
+Dockerfile
+.dockerignore

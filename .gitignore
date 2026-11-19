@@ -32,3 +32,6 @@ Claude outputs/
 
 # Lockfile huerfano en la raiz (no hay package.json en la raiz)
 /package-lock.json
+
+# Reportes del CI (pytest --junitxml)
+backend/reports/
